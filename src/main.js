@@ -404,6 +404,12 @@ app.whenReady().then(() => {
       // メインウィンドウが消えている場合は再度メインウィンドウを作成する
       if (BrowserWindow.getAllWindows().length === 0) {
         CreateMainWindow();
+
+        // eslint-disable-next-line no-undef
+      } else if (MainWindow && process.platform === 'darwin') {
+        if (MainWindow.isMinimized()) MainWindow.restore(); // 最小化を戻す
+        if (!MainWindow.isVisible()) MainWindow.show();     // 非表示を戻す
+        MainWindow.focus();                                 // フォーカスを当てる
       }
     });
   }
@@ -488,8 +494,10 @@ function errorResolve(response) {
 electron.app.on("ready", () => {
   //タスクトレイアイコン
   tray = new electron.Tray(
-    // eslint-disable-next-line no-undef
-    `${__dirname}/img/icon.${process.platform === "win32" ? "ico" : "png"}`
+    electron.nativeImage.createFromPath(
+      // eslint-disable-next-line no-undef
+      path.join(__dirname, "img", `icon.${process.platform === "win32" ? "ico" : "png"}`)
+    )
   );
   tray.setToolTip("Zero Quake");
   tray.setContextMenu(
@@ -652,6 +660,14 @@ ipcMain.on("message", (_event, response) => {
   }
 });
 
+// macでは終了時に終了されないので仕方なくこの実装
+app.on('before-quit', () => {
+  // eslint-disable-next-line no-undef
+  if (process.platform === 'darwin') {
+    app.quit()
+  }
+});
+
 function setOpenAtLogin(openAtLogin) {
   // eslint-disable-next-line no-undef
   if (process.platform != "win32") {
@@ -708,6 +724,73 @@ function CreateMainWindow() {
       });
       if (Replay !== 0) {
         messageToMainWindow({ action: "Replay", data: Replay });
+      }
+
+      // macOS用のメニューバー
+      if (process.platform === 'darwin') {
+        const template = [
+          {
+            label: app.name,
+            submenu: [
+              { role: 'about' },
+              { type: 'separator' },
+              { role: 'services' },
+              { type: 'separator' },
+              { role: 'hide' },
+              { role: 'hideothers' },
+              { role: 'unhide' },
+              { type: 'separator' },
+              { role: 'quit' }
+            ]
+          },
+          {
+            label: 'Edit',
+            submenu: [
+              { role: 'undo' },
+              { role: 'redo' },
+              { type: 'separator' },
+              { role: 'cut' },
+              { role: 'copy' },
+              { role: 'paste' },
+              { role: 'pasteAndMatchStyle' },
+              { role: 'delete' },
+              { role: 'selectAll' },
+              { type: 'separator' },
+              {
+                label: 'Speech',
+                submenu: [
+                  { role: 'startSpeaking' },
+                  { role: 'stopSpeaking' }
+                ]
+              }
+            ]
+          },
+          // { role: 'fileMenu' },  // 必要に応じて追加
+          // { role: 'viewMenu' },  // 必要に応じて追加
+          // { role: 'windowMenu' }, // 必要に応じて追加
+          {
+            label: 'Window',
+            submenu: [
+              { role: 'minimize' },
+              { role: 'zoom' },
+              { role: 'close' }
+            ]
+          },
+          {
+            role: 'help',
+            submenu: [
+              {
+                label: 'Learn More',
+                click: async () => {
+                  await shell.openExternal('https://0quake.github.io/ZeroQuake_Website/')
+                }
+              }
+            ]
+          }
+        ];
+
+        const menu = Menu.buildFromTemplate(template)
+        Menu.setApplicationMenu(menu)
       }
 
       MainWindow.webContents.on("did-finish-load", () => {
