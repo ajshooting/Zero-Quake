@@ -490,6 +490,14 @@ function errorResolve(response) {
   }
 }
 
+ipcMain.on("open-date-settings", () => {
+  if (process.platform === 'darwin') {
+    shell.openExternal('x-apple.systempreferences:com.apple.preference.datetime');
+  } else {
+    shell.openExternal('ms-settings:dateandtime');
+  }
+});
+
 //アプリのロード完了イベント
 electron.app.on("ready", () => {
   //タスクトレイアイコン

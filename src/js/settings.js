@@ -1,4 +1,9 @@
 /* global NormalizeDate maplibregl turf pmtiles SetShindoColor*/
+
+document.getElementById("sync-time").addEventListener("click", function () {
+  window.electronAPI.openDateSettings();
+});
+
 var map;
 var config;
 var markerElm;
