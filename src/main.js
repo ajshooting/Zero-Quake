@@ -550,13 +550,7 @@ electron.app.on("ready", () => {
   });
 });
 
-app.on("second-instance", () => {
-  if (MainWindow) {
-    if (MainWindow.isMinimized()) MainWindow.restore();
-    if (!MainWindow.isFocused()) MainWindow.focus();
-    if (!MainWindow.isVisible()) MainWindow.show();
-  }
-});
+app.on("second-instance", CreateMainWindow);
 
 //レンダラープロセスからのメッセージ
 ipcMain.on("message", (_event, response) => {
@@ -665,6 +659,12 @@ ipcMain.on("message", (_event, response) => {
     case "Request_gaikyo":
       Req_JMA_gaikyo();
       break;
+    case "Request_wepa":
+      Req_JMA_wepa();
+      break;
+    case "wepa_window":
+      Create_WepaWindow(response.fname);
+      break;
   }
 });
 
@@ -719,6 +719,11 @@ function CreateMainWindow() {
       if (!MainWindow.isVisible()) MainWindow.show();
     } else {
       MainWindow = new BrowserWindow({
+        x: store.get("x", null),
+        y: store.get("y", null),
+        width: store.get("width", 800),
+        height: store.get("height", 640),
+
         minWidth: 650,
         minHeight: 400,
         icon: path.join(__dirname, "img/icon.ico"),
@@ -730,6 +735,9 @@ function CreateMainWindow() {
         backgroundColor: "#222225",
         alwaysOnTop: config.system.alwaysOnTop,
       });
+      if (store.get("Maximized", null)) MainWindow.maximize()
+      else MainWindow.unmaximize()
+
       if (Replay !== 0) {
         messageToMainWindow({ action: "Replay", data: Replay });
       }
@@ -872,6 +880,16 @@ function CreateMainWindow() {
 
       MainWindow.loadFile("src/index.html");
 
+      function savePosition() {
+        const { x, y, width, height } = MainWindow.getBounds();
+        store.set({ x, y, width, height });
+        store.set("Maximized", MainWindow.isMaximized());
+      }
+      MainWindow.on('maximize', savePosition)
+        .on('unmaximize', savePosition)
+        .on('resize', savePosition)
+        .on('move', savePosition);
+
       MainWindow.on("unresponsive", () => {
         MainWindow.responsive = true;
         setTimeout(function () {
@@ -889,24 +907,20 @@ function CreateMainWindow() {
             });
           }
         }, 5000);
+      }).on("responsive", () => {
+        MainWindow.responsive = false;
       });
+
       MainWindow.on("focus", () => {
         messageToMainWindow({ action: "activate" });
-      });
-      MainWindow.on("show", () => {
+      }).on("show", () => {
         messageToMainWindow({ action: "activate" });
-      });
-      MainWindow.on("hide", () => {
-        messageToMainWindow({ action: "unactivate" });
-      });
-      MainWindow.on("restore", () => {
+      }).on("hide", () => {
+        messageToMainWindow({ action: "deactivate" });
+      }).on("restore", () => {
         messageToMainWindow({ action: "activate" });
-      });
-      MainWindow.on("minimize", () => {
-        messageToMainWindow({ action: "unactivate" });
-      });
-      MainWindow.on("responsive", () => {
-        MainWindow.responsive = false;
+      }).on("minimize", () => {
+        messageToMainWindow({ action: "deactivate" });
       });
 
       MainWindow.on("close", (event) => {
@@ -914,9 +928,7 @@ function CreateMainWindow() {
           event.preventDefault();
           MainWindow.hide();
         }
-      });
-
-      MainWindow.on("closed", () => {
+      }).on("closed", () => {
         MainWindow = null;
       });
     }
@@ -934,7 +946,7 @@ function Create_WorkerWindow() {
   });
   WorkerWindow.on("close", () => {
     WorkerWindow = null;
-    Create_WorkerWindow()
+    setTimeout(Create_WorkerWindow, 2000)
   });
   WorkerWindow.webContents.on("did-finish-load", () => {
     WorkerWindow.webContents.send("message2", {
@@ -1120,6 +1132,53 @@ function Create_NankaiWindow(type) {
     NankaiWindow.window.loadFile("src/NankaiTrough.html");
   } catch (err) {
     throw new Error("南海トラフ関連情報ウィンドウの作成でエラーが発生しました。", { cause: err });
+  }
+}
+
+//WEPA40 国際津波関連情報ウィンドウ
+var WepaWindow = {}
+function Create_WepaWindow(fname) {
+  try {
+    if (WepaWindow[fname]) {
+      if (WepaWindow[fname].isMinimized()) WepaWindow[fname].restore();
+      if (!WepaWindow[fname].isFocused()) WepaWindow[fname].focus();
+      return false;
+    }
+
+    WepaWindow[fname] = new BrowserWindow({
+      minWidth: 650,
+      minHeight: 400,
+      icon: path.join(__dirname, "img/icon.ico"),
+      webPreferences: {
+        preload: path.join(__dirname, "js/preload.js"),
+        title: "国際津波関連情報 - Zero Quake",
+      },
+      backgroundColor: "#222225",
+      alwaysOnTop: config.system.alwaysOnTop,
+    });
+
+    WepaWindow[fname].webContents.on("did-finish-load", () => {
+      WepaWindow[fname].webContents.setZoomFactor(config.system.zoom);
+
+      if (fname) {
+        WepaWindow[fname].webContents.send("message2", {
+          action: "metadata",
+          fname: fname,
+        });
+        WepaWindow[fname].webContents.send("message2", {
+          action: "setting",
+          data: config,
+        });
+      }
+    });
+
+    WepaWindow[fname].on("closed", () => {
+      WepaWindow[fname] = null;
+    });
+
+    WepaWindow[fname].loadFile("src/WEPA.html");
+  } catch (err) {
+    throw new Error("国際津波関連情報ウィンドウの作成でエラーが発生しました。", { cause: err });
   }
 }
 
@@ -1396,6 +1455,30 @@ function Req_JMA_gaikyo() {
     });
     request.on("error", () => {
       messageToMainWindow({ action: "Return_gaikyo", data: [] });
+    });
+    request.end();
+  }
+}
+
+function Req_JMA_wepa() {
+  if (net.online) {
+    var request = net.request("https://www.jma.go.jp/bosai/pacifictsunami/data/list.json?_=" + Number(new Date()));
+    request.on("response", (res) => {
+      var dataTmp = "";
+      res.on("data", (chunk) => {
+        dataTmp += chunk;
+      });
+      res.on("end", function () {
+        try {
+          var json = ParseJSON(dataTmp);
+          messageToMainWindow({ action: "Return_wepa", data: json });
+        } catch {
+          messageToMainWindow({ action: "Return_wepa", data: [] });
+        }
+      });
+    });
+    request.on("error", () => {
+      messageToMainWindow({ action: "Return_wepa", data: [] });
     });
     request.end();
   }
