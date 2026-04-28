@@ -18,7 +18,11 @@
     ],
     "mac": {
       "target": "dmg",
-      "icon": "src/img/icon_512.ico"
+      "icon": "src/img/icon_512.ico",
+      "files": [
+        "!**/*.{map,ts,md}",
+        "!node_modules/*/{CHANGELOG.md,README.md,*.map,*.ts}"
+      ]
     },
     "win": {
       "icon": "src/img/icon.ico",
