@@ -18,7 +18,7 @@
     ],
     "mac": {
       "target": "dmg",
-      "icon": "src/img/icon_512.ico",
+      "icon": "src/img/icon.icns",
       "electronLanguages": [
         "ja",
         "en-US"
