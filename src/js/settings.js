@@ -11,8 +11,6 @@ var Replay;
 var openAtLogin = false;
 var tsunamiSect;
 var EQSect;
-var tsunamiFeatures;
-var EQSectFeatures;
 var defaultConfigVal;
 window.addEventListener("load", function () {
   this.document.getElementById("replay").value = NormalizeDate(3, new Date()).replaceAll("/", "-");
@@ -106,6 +104,8 @@ function configDataDraw() {
   document.getElementById("EQInfo_ItemCount").value = config.Info.EQInfo.ItemCount;
   document.getElementById("EEW_training").checked = config.Info.EEW.showtraining;
   document.getElementById("EEW_IntQ").checked = config.Info.EEW.IntQuestion;
+  document.getElementById("EEW_IntI").checked = config.Info.EEW.IntTerm1;
+  selectBoxSet(document.getElementById("tide_processing"), config.Info.TideHeight.processing)
   document.getElementById("EEW_userIntQ").checked = config.Info.EEW.userIntQuestion;
   document.getElementById("EQInfoInterval").value = config.Info.EQInfo.Interval / 1000;
   document.getElementById("EEW_kodoriyou").checked = config.Info.EEW.kodoriyou;
@@ -127,6 +127,7 @@ function configDataDraw() {
   TTSvolumeSet(config.notice.voice_parameter.volume);
   TTSpitchSet(config.notice.voice_parameter.pitch);
   TTSspeedSet(config.notice.voice_parameter.rate);
+  volumeSet(config.notice.bell_volume, true)
 
   selectBoxSet(document.getElementById("TTSvoiceSelect"), config.notice.voice_parameter.voice);
 
@@ -294,6 +295,9 @@ function apply() {
   config.Info.EQInfo.ItemCount = Number(document.getElementById("EQInfo_ItemCount").value);
   config.Info.EEW.showtraining = document.getElementById("EEW_training").checked;
   config.Info.EEW.IntQuestion = document.getElementById("EEW_IntQ").checked;
+  config.Info.EEW.IntTerm1 = document.getElementById("EEW_IntI").checked;
+  config.Info.TideHeight.processing = document.getElementById("tide_processing").value
+
   config.Info.EEW.userIntQuestion = document.getElementById("EEW_userIntQ").checked;
   config.Info.EEW.IntThreshold = document.getElementById("EEW_IntFilter").value;
   config.Info.EEW.userIntThreshold = document.getElementById("EEW_userIntFilter").value;
@@ -318,6 +322,8 @@ function apply() {
   config.notice.voice_parameter.pitch = TTSpitch;
   config.notice.voice_parameter.volume = TTSvolume;
   config.notice.voice_parameter.voice = TTSVoiceSelect.value;
+
+  config.notice.bell_volume = master_volume;
 
   config.Info.TsunamiInfo.showTest = document.getElementById("Tsunami_Test").checked;
   config.Info.TsunamiInfo.showtraining = document.getElementById("Tsunami_training").checked;
@@ -434,27 +440,24 @@ function mapInit() {
           maxzoom: 16,
         },
         worldmap: {
-          type: "geojson",
-          data: "./Resource/World.json",
-          tolerance: 2,
+          type: "vector",
+          url: "pmtiles://local-range-request://src/Resource/world.pmtiles",
           attribution: "Natural Earth",
         },
         tsunami: {
-          type: "geojson",
-          data: "./Resource/tsunami.json",
+          type: "vector",
+          url: "pmtiles://local-range-request://src/Resource/jp_tsunami.pmtiles",
           tolerance: 1.6,
           attribution: "気象庁",
         },
         basemap: {
-          type: "geojson",
-          data: "./Resource/basemap.json",
-          tolerance: 0.7,
+          type: "vector",
+          url: "pmtiles://local-range-request://src/Resource/jp_sect.pmtiles",
           attribution: "気象庁",
         },
         prefmap: {
-          type: "geojson",
-          data: "./Resource/prefectures.json",
-          tolerance: 0.7,
+          type: "vector",
+          url: "pmtiles://local-range-request://src/Resource/jp_pref.pmtiles",
           attribution: "気象庁",
         },
       },
@@ -463,6 +466,7 @@ function mapInit() {
           id: "tsunami_LINE",
           type: "line",
           source: "tsunami",
+          "source-layer": "jp_tsunami",
           minzoom: 0,
           maxzoom: 22,
         },
@@ -470,6 +474,7 @@ function mapInit() {
           id: "tsunami_LINE_selected",
           type: "line",
           source: "tsunami",
+          "source-layer": "jp_tsunami",
           layout: {
             "line-join": "round",
             "line-cap": "butt",
@@ -486,6 +491,7 @@ function mapInit() {
           id: "prefmap_fill",
           type: "fill",
           source: "prefmap",
+          "source-layer": "jp_pref",
           paint: {
             "fill-color": high_contrast ? "#000" : "#333",
             "fill-opacity": 1,
@@ -497,6 +503,7 @@ function mapInit() {
           id: "selected_sect",
           type: "fill",
           source: "basemap",
+          "source-layer": "jp_sect",
           paint: {
             "fill-color": "rgba(255, 146, 146, 0.5)",
             "fill-opacity": 1,
@@ -510,6 +517,7 @@ function mapInit() {
           id: "basemap_LINE",
           type: "line",
           source: "basemap",
+          "source-layer": "jp_sect",
           paint: {
             "line-color": high_contrast ? "#FFF" : "#666",
             "line-width": 1,
@@ -521,6 +529,7 @@ function mapInit() {
           id: "prefmap_LINE",
           type: "line",
           source: "prefmap",
+          "source-layer": "jp_pref",
           paint: {
             "line-color": high_contrast ? "#FFF" : "#999",
             "line-width": 1,
@@ -532,6 +541,7 @@ function mapInit() {
           id: "tsunami_LINE_selected_2",
           type: "line",
           source: "tsunami",
+          "source-layer": "jp_tsunami",
           layout: {
             "line-join": "round",
             "line-cap": "butt",
@@ -548,6 +558,7 @@ function mapInit() {
           id: "worldmap_fill",
           type: "fill",
           source: "worldmap",
+          "source-layer": "world",
           paint: {
             "fill-color": high_contrast ? "#000" : "#333",
             "fill-opacity": 1,
@@ -559,6 +570,7 @@ function mapInit() {
           id: "worldmap_LINE",
           type: "line",
           source: "worldmap",
+          "source-layer": "world",
           paint: {
             "line-color": high_contrast ? "#FFF" : "#999",
             "line-width": 1,
@@ -790,8 +802,7 @@ function MapReDraw() {
   if (!lat) lat = 0;
   if (!lng) lng = 0;
 
-  tsunamiFeatures = map.querySourceFeatures("tsunami");
-  EQSectFeatures = map.querySourceFeatures("basemap");
+  var EQSectFeatures = map.querySourceFeatures("basemap", { sourceLayer: 'jp_sect' });
 
   var selected_sect = EQSectFeatures.find(function (elm) {
     return turf.booleanPointInPolygon([lng, lat], elm);
@@ -852,6 +863,8 @@ function MapReDraw() {
   }
 
   var minDistance = Infinity;
+  var tsunamiFeatures = map.querySourceFeatures("tsunami", { sourceLayer: 'jp_tsunami' });;
+
   tsunamiFeatures.forEach(function (elm) {
     // 距離を求める
     if (elm.geometry.type == "MultiLineString") {
@@ -1009,6 +1022,32 @@ function TTSvolumeSet(val) {
   document.getElementById("TTSVolumeR").value = val;
   TTSvolume = val;
 }
+var master_volume = 1;
+var audio_delay;
+function volumeSet(val, bypass_preview) {
+  val = Number(val);
+  document.getElementById("NotificationVolumeN").value = val;
+  document.getElementById("NotificationVolumeR").value = val;
+  master_volume = val;
+
+  if (!bypass_preview) {
+    if (audio_delay) {
+      clearTimeout(audio_delay);
+      audio_delay = null;
+    }
+    audio_delay = setTimeout(function () {
+      audio_preview(val)
+    }, 300);
+  }
+}
+
+var AudioElm = new Audio("audio/EQInfo.mp3")
+function audio_preview(volume) {
+  AudioElm.currentTime = 0;
+  AudioElm.volume = volume;
+  if (AudioElm.paused) AudioElm.play();
+}
+
 function selectBoxSet(selectElm, TargetValue) {
   selectElm.querySelectorAll("option").forEach(function (elm) {
     if (elm.value == TargetValue) elm.setAttribute("selected", "");

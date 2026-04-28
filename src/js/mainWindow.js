@@ -6,14 +6,14 @@ var psWaveList = [];
 var tsunamiAlertNow = false;
 var hinanjoLayers = [];
 var knet_already_draw = false;
-var now_EEW = [];
+var current_EEW = [];
 var Replay = 0;
 var background = false;
 var knetMapData;
 var snetMapData;
 var userPosition = [138.46, 32.99125];
 var userZoom = 4;
-var userMotion;
+var userMotionFlg;
 
 var high_contrast = window.matchMedia("(forced-colors: active)").matches;
 
@@ -80,6 +80,7 @@ window.electronAPI.messageSend((event, request) => {
   else if (request.action == "HokkaidoSanrikuInfo") HokkaidoSanrikuInfo(request.data);
   else if (request.action == "KatsudoJokyoInfo") KatsudoJokyoInfo(request.data);
   else if (request.action == "Return_gaikyo") draw_gaikyo(request.data);
+  else if (request.action == "Return_tide") draw_tide(request.data);
   else if (request.action == "Return_wepa") draw_wepa(request.data);
 
   document.getElementById("splash").style.display = "none";
@@ -156,11 +157,11 @@ function EEW_AlertUpdate(data) {
       var clone = document.getElementById("EEW-" + elm.EventID);
       is_update = true;
     } else {
+      if (elm.is_cancel) return;
       var clone = template.content.cloneNode(true).querySelector(".EEWWrap");
       EEWID++;
       EEW_LocalIDs[elm.EventID] = EEWID;
     }
-    if (!is_update && elm.is_cancel) return;
 
     if (elm.alertflg == "警報" || elm.alertflg == "予報")
       var textForReader = GenerateEEWText(elm, "緊急地震速報アイテム。{training}{grade}、第{serial}報。[{location}の予想震度は{local_Int}。]予想マグニチュード、{magnitude}。予想最大震度、{maxInt}。{region_name}の、深さ{depth}キロメートルで、{origin_time}に発生。{final}");
@@ -176,7 +177,7 @@ function EEW_AlertUpdate(data) {
     else if (elm.alertflg == "EarlyEst") clone.classList.add("EarlyEst");
 
     clone.setAttribute("aria-label", textForReader);
-    clone.querySelector(".EEWLocalID").textContent = EEW_LocalIDs[elm.EventID];
+    clone.querySelector(".epiCenterTooltip").textContent = EEW_LocalIDs[elm.EventID];
     clone.querySelector(".serial").textContent = elm.serial;
     clone.querySelector(".maxInt").textContent = elm.maxInt ? elm.maxInt : "?";
     clone.querySelector(".maxInt").style.background = NormalizeShindo(elm.maxInt, 2)[0];
@@ -184,7 +185,7 @@ function EEW_AlertUpdate(data) {
     clone.querySelector(".userLocation").textContent = config.home.name ? config.home.name : "現在地";
     clone.querySelector(".is_final").style.display = elm.is_final ? "inline" : "none";
     clone.querySelector(".cancelled").style.display = elm.is_cancel ? "flex" : "none";
-    clone.querySelector(".region_name").textContent = elm.region_name ? elm.region_name : "震源地域不明";
+    clone.querySelector(".region_name").textContent = elm.region_name ? elm.region_name : "震央不明";
     clone.querySelector(".origin_time").textContent = NormalizeDate(3, elm.origin_time);
     clone.querySelector(".magnitude").textContent = elm.magnitude || elm.magnitude == 0 ? Math.round(elm.magnitude * 10) / 10 : "不明";
     if (elm.magnitude || elm.magnitude == 0)
@@ -214,12 +215,12 @@ function EEW_AlertUpdate(data) {
     }
     epiCenterUpdate(elm);
 
-    now_EEW = now_EEW.filter(function (elm2) {
+    current_EEW = current_EEW.filter(function (elm2) {
       return elm2.EventID !== elm.EventID;
     });
-    now_EEW.push(elm);
+    current_EEW.push(elm);
   });
-  now_EEW = now_EEW.filter(function (elm) {
+  current_EEW = current_EEW.filter(function (elm) {
     var stillEQ = data.find(function (elm2) {
       return elm.EventID == elm2.EventID;
     });
@@ -237,15 +238,13 @@ function EEW_AlertUpdate(data) {
     }
     return stillEQ;
   });
-  if (now_EEW.length == 0) EEWID = 0;
+  if (current_EEW.length == 0) EEWID = 0;
 
   var EEWData = data.filter((elm) => {
     return !elm.is_cancel;
   });
   if (EEWData.length == 0) document.body.classList.remove("EEWMode");
   else document.body.classList.add("EEWMode");
-
-  document.getElementById("noEEW").style.display = now_EEW.length == 0 && !now_tsunami && EQDetectItem.length == 0 ? "block" : "none";
 }
 
 var EEWID = 0;
@@ -282,9 +281,6 @@ function epiCenterUpdate(elm) {
       img.src = "./img/epicenter.svg";
       img.classList.add("epicenterIcon");
 
-      map.panTo([longitude, latitude], { animate: false });
-      map.zoomTo(8, { animate: false });
-
       var ESPopup = new maplibregl.Popup({
         closeButton: false,
         closeOnClick: false,
@@ -316,7 +312,7 @@ function epiCenterUpdate(elm) {
         ESPopup2: ESPopup2,
       });
       var displayTmp = epiCenter.length > 1 ? "inline-block" : "none";
-      document.querySelectorAll(".epiCenterTooltip,.EEWLocalID").forEach(function (elm3) {
+      document.querySelectorAll(".epiCenterTooltip,.epiCenterTooltip").forEach(function (elm3) {
         elm3.style.display = displayTmp;
       });
     }
@@ -376,6 +372,14 @@ function eqInfoDraw(data, source) {
   } else if (source == "usgs") {
     EQTemplate = template2_2;
     EQListWrap = document.getElementById("USGS_EqInfo");
+
+    if (!data || data.length == 0)
+      document.getElementById("usgs_update_time").innerText = "データがありません：" + NormalizeDate("hh:mm:ss", new Date());
+    else {
+      usgs_lastUpdate = new Date()
+      document.getElementById("usgs_update_time").innerText = "最終更新：" + NormalizeDate("hh:mm:ss", new Date());
+      document.getElementById("usgs_update_time").setAttribute("aria-label", "最終更新時刻、" + NormalizeDate("h時m分s秒", new Date()));
+    }
   }
   removeChild(EQListWrap);
 
@@ -471,10 +475,13 @@ function eqInfoDraw(data, source) {
           clone.querySelector(".EQItem").classList.add("EQI_cancelled");
           clone.querySelector(".EQItem").setAttribute("aria-label", "取り消された地震情報アイテム");
         } else {
+          var lgIntStr = ""
+          if (elm.maxLgInt) lgIntStr = "最大長周期地震動階級" + elm.maxLgInt + "、"
+
           clone.querySelector(".EQItem")
             .setAttribute("aria-label",
               `過去の地震情報アイテム：${elm.status == "訓練" ? "訓練報、" : ""}${elm.status == "試験" ? "試験報、" : ""}
-            ${maxITmp != "?" ? "最大震度" + NormalizeShindo(maxITmp, 1) + "、" : ""}${elm.M || elm.M === 0 ? "マグニチュード" + elm.M.toFixed(1) + "、" : ""}
+            ${maxITmp != "?" ? "最大震度" + NormalizeShindo(maxITmp, 1) + "、" : ""}${lgIntStr}${elm.M || elm.M === 0 ? "マグニチュード" + elm.M.toFixed(1) + "、" : ""}
             ${elm.epiCenter ? "震源は" + elm.epiCenter + "、" : ""}発生時刻は${NormalizeDate("M月D日h時m分", elm.OriginTime)}。エンターキーで詳細情報を確認。`
             );
           clone.querySelector(".EQItem").addEventListener("click", function () {
@@ -598,7 +605,6 @@ function EQDetect(data) {
       padding: 100,
     });
   }
-  document.getElementById("noEEW").style.display = now_EEW.length == 0 && !now_tsunami && EQDetectItem.length == 0 ? "block" : "none";
 
   if (EQDetectItem.length != 0) document.body.classList.add("EQDetecting");
 }
@@ -619,7 +625,6 @@ function EQDetectFinish(id) {
 
   var eqdItem = document.getElementById("EQDItem_" + id);
   if (eqdItem) eqdItem.remove();
-  document.getElementById("noEEW").style.display = now_EEW.length == 0 && !now_tsunami && EQDetectItem.length == 0 ? "block" : "none";
 
   if (EQDetectItem.length == 0) document.body.classList.remove("EQDetecting");
 }
@@ -715,7 +720,7 @@ document.getElementById("CloseTsunamiRevocation").addEventListener("click", func
 });
 
 function psWaveAnm() {
-  for (var elm of now_EEW) {
+  for (var elm of current_EEW) {
     if (!elm.is_cancel) psWaveCalc(elm.EventID);
   }
   if (background) setTimeout(psWaveAnm, 1000);
@@ -850,20 +855,18 @@ function init() {
           maxzoom: 16,
         },
         worldmap: {
-          type: "geojson",
-          data: "./Resource/World.json",
-          tolerance: 2,
+          type: "vector",
+          url: "pmtiles://local-range-request://src/Resource/world.pmtiles",
           attribution: "Natural Earth",
         },
         basemap: {
-          type: "geojson",
-          data: "./Resource/basemap.json",
-          tolerance: 0.9,
+          type: "vector",
+          url: "pmtiles://local-range-request://src/Resource/jp_sect.pmtiles",
           attribution: "気象庁",
         },
         prefmap: {
-          type: "geojson",
-          data: "./Resource/prefectures.json",
+          type: "vector",
+          url: "pmtiles://local-range-request://src/Resource/jp_pref.pmtiles",
           tolerance: 0.9,
           attribution: "気象庁",
         },
@@ -874,19 +877,18 @@ function init() {
           attribution: "国土数値情報",
         },
         tsunami: {
-          type: "geojson",
-          data: "./Resource/tsunami.json",
-          tolerance: 0.3,
+          type: "vector",
+          url: "pmtiles://local-range-request://src/Resource/jp_tsunami.pmtiles",
           attribution: "気象庁",
         },
-        plate: { type: "geojson", data: "./Resource/plate.json", tolerance: 2 },
         submarine: {
           type: "raster",
-          tiles: ["./Resource/Submarine/{z}/{x}/{y}.jpg"],
+          //tiles: ["./Resource/Submarine/{z}/{x}/{y}.jpg"],
+          url: "pmtiles://local-range-request://src/Resource/background.pmtiles",
           tileSize: 256,
           attribution: "GEBCO, Peter Bird",
           minzoom: 0,
-          maxzoom: 5,
+          maxzoom: 6,
         },
         tile0: {
           type: "raster",
@@ -1036,6 +1038,7 @@ function init() {
           id: "tsunami_Yoho",
           type: "line",
           source: "tsunami",
+          "source-layer": "jp_tsunami",
           layout: { "line-join": "round", "line-cap": "round", "line-round-limit": 0 },
           paint: {
             "line-color": config.color.Tsunami.TsunamiYohoColor,
@@ -1048,7 +1051,8 @@ function init() {
           id: "tsunami_Watch",
           type: "line",
           source: "tsunami",
-          layout: { "line-join": "round", "line-cap": "round", "line-round-limit": 0 },
+          "source-layer": "jp_tsunami",
+          layout: { "line-join": "round", "line-cap": "round", "line-round-limit": 1 },
           paint: {
             "line-color": config.color.Tsunami.TsunamiWatchColor,
             "line-width": ["interpolate", ["linear"], ["zoom"], 2, 10, 5, 30, 10, 50, 13, 100, 15, 400],
@@ -1059,6 +1063,7 @@ function init() {
           id: "tsunami_Warn",
           type: "line",
           source: "tsunami",
+          "source-layer": "jp_tsunami",
           layout: { "line-join": "round", "line-cap": "round", "line-round-limit": 0 },
           paint: {
             "line-color": config.color.Tsunami.TsunamiWarningColor,
@@ -1071,6 +1076,7 @@ function init() {
           id: "tsunami_MajorWarn",
           type: "line",
           source: "tsunami",
+          "source-layer": "jp_tsunami",
           layout: { "line-join": "round", "line-cap": "round", "line-round-limit": 0 },
           paint: {
             "line-color": config.color.Tsunami.TsunamiMajorWarningColor,
@@ -1083,6 +1089,7 @@ function init() {
           id: "prefmap_fill",
           type: "fill",
           source: "prefmap",
+          "source-layer": "jp_pref",
           paint: {
             "fill-color": high_contrast ? "#000" : "#333",
             "fill-opacity": 1,
@@ -1128,6 +1135,7 @@ function init() {
           id: "basemap_LINE",
           type: "line",
           source: "basemap",
+          "source-layer": "jp_sect",
           minzoom: 6,
           paint: {
             "line-color": high_contrast ? "#FFF" : "#666",
@@ -1138,6 +1146,7 @@ function init() {
           id: "Int1",
           type: "fill",
           source: "basemap",
+          "source-layer": "jp_sect",
           paint: { "fill-color": config.color.Shindo["1"].background },
           filter: ["==", "name", ""],
         },
@@ -1145,6 +1154,7 @@ function init() {
           id: "Int2",
           type: "fill",
           source: "basemap",
+          "source-layer": "jp_sect",
           paint: { "fill-color": config.color.Shindo["2"].background },
           filter: ["==", "name", ""],
         },
@@ -1152,6 +1162,7 @@ function init() {
           id: "Int3",
           type: "fill",
           source: "basemap",
+          "source-layer": "jp_sect",
           paint: { "fill-color": config.color.Shindo["3"].background },
           filter: ["==", "name", ""],
         },
@@ -1159,6 +1170,7 @@ function init() {
           id: "Int4",
           type: "fill",
           source: "basemap",
+          "source-layer": "jp_sect",
           paint: { "fill-color": config.color.Shindo["4"].background },
           filter: ["==", "name", ""],
         },
@@ -1166,6 +1178,7 @@ function init() {
           id: "Int5-",
           type: "fill",
           source: "basemap",
+          "source-layer": "jp_sect",
           paint: { "fill-color": config.color.Shindo["5m"].background },
           filter: ["==", "name", ""],
         },
@@ -1173,6 +1186,7 @@ function init() {
           id: "Int5+",
           type: "fill",
           source: "basemap",
+          "source-layer": "jp_sect",
           paint: { "fill-color": config.color.Shindo["5p"].background },
           filter: ["==", "name", ""],
         },
@@ -1180,6 +1194,7 @@ function init() {
           id: "Int6-",
           type: "fill",
           source: "basemap",
+          "source-layer": "jp_sect",
           paint: { "fill-color": config.color.Shindo["6m"].background },
           filter: ["==", "name", ""],
         },
@@ -1187,6 +1202,7 @@ function init() {
           id: "Int6+",
           type: "fill",
           source: "basemap",
+          "source-layer": "jp_sect",
           paint: { "fill-color": config.color.Shindo["6p"].background },
           filter: ["==", "name", ""],
         },
@@ -1194,6 +1210,7 @@ function init() {
           id: "Int7",
           type: "fill",
           source: "basemap",
+          "source-layer": "jp_sect",
           paint: { "fill-color": config.color.Shindo["7"].background },
           filter: ["==", "name", ""],
         },
@@ -1201,6 +1218,7 @@ function init() {
           id: "prefmap_LINE",
           type: "line",
           source: "prefmap",
+          "source-layer": "jp_pref",
           paint: {
             "line-color": high_contrast ? "#FFF" : "#999",
             "line-width": 1,
@@ -1210,6 +1228,7 @@ function init() {
           id: "worldmap_fill",
           type: "fill",
           source: "worldmap",
+          "source-layer": "world",
           paint: {
             "fill-color": high_contrast ? "#000" : "#333",
             "fill-opacity": 1,
@@ -1219,6 +1238,7 @@ function init() {
           id: "worldmap_LINE",
           type: "line",
           source: "worldmap",
+          "source-layer": "world",
           paint: {
             "line-color": high_contrast ? "#FFF" : "#999",
             "line-width": 1,
@@ -1457,6 +1477,8 @@ function init() {
 
   map.touchZoomRotate.disableRotation();
 
+  map_gethome();
+
   map.on("click", "prefmap_fill", function (e) {
     e.originalEvent.cancelBubble = true;
   });
@@ -1593,14 +1615,7 @@ function init() {
   homeButton.setAttribute("title", "初期位置に戻る");
   homeButton.setAttribute("aria-label", "地図を初期位置に戻す");
   homeButton.className = "material-icons-round";
-  homeButton.addEventListener("click", function () {
-    userMotion = true;
-    map.panTo([138.46, 32.99125], { animate: false });
-    map.zoomTo(4, { animate: false });
-    userMotion = false;
-    userPosition = map.getCenter().toArray();
-    userZoom = map.getZoom();
-  });
+  homeButton.addEventListener("click", map_gethome);
 
   var returnButton = document.createElement("button");
   returnButton.innerText = "undo";
@@ -1608,9 +1623,9 @@ function init() {
   returnButton.setAttribute("aria-label", "地図を直前の操作位置に戻す");
   returnButton.className = "material-icons-round";
   returnButton.addEventListener("click", function () {
-    userMotion = true;
+    userMotionFlg = true;
     returnToUserPosition();
-    userMotion = false;
+    userMotionFlg = false;
   });
   returnButton.setAttribute("id", "returnToUserPosition");
   returnButton.style.display = "none";
@@ -1651,6 +1666,26 @@ function init() {
     ) {
       window.electronAPI.messageReturn({ action: "Request_gaikyo" });
     }
+    if (
+      new Date() - tide_lastUpdate > 1800000 &&
+      document.getElementById("tab1_menu5").classList.contains("active_tabmenu")
+    ) {
+      window.electronAPI.messageReturn({ action: "Request_tide" });
+    }
+
+    if (
+      new Date() - wepa_lastUpdate > 1800000 &&
+      document.getElementById("tab1_menu3").classList.contains("active_tabmenu")
+    ) {
+      window.electronAPI.messageReturn({ action: "Request_wepa" });
+    }
+
+    if (
+      new Date() - usgs_lastUpdate > 1800000 &&
+      document.getElementById("tab1_menu4").classList.contains("active_tabmenu")
+    ) {
+      window.electronAPI.messageReturn({ action: "Request_usgs" });
+    }
   }, 10000);
 
   var zoomLevelContinue = function () {
@@ -1681,6 +1716,7 @@ function init() {
         id: "Alert",
         type: "fill",
         source: "basemap",
+        "source-layer": "jp_sect",
         paint: { "fill-pattern": "pattern" },
         filter: ["==", "name", ""],
       },
@@ -1701,7 +1737,7 @@ function init() {
     overlaySelect("kmoni_points", config.data.kmoni_points_show);
     document.getElementById("kmoni_points").checked = config.data.kmoni_points_show;
 
-    now_EEW.forEach(function (elm) {
+    current_EEW.forEach(function (elm) {
       epiCenterUpdate(elm);
     });
 
@@ -1715,7 +1751,9 @@ function init() {
   });
   map.on("move", function (e) {
     var nowAtUserPosition;
-    if (e.originalEvent || userMotion) {
+    var isUserMotion = e.originalEvent || userMotionFlg;//ユーザー操作による移動
+    var windowResize = userPosition[0] == map.getCenter().lng && userPosition[1] == map.getCenter().lat//ウィンドウリサイズによるmoveイベント（中心移動なし）
+    if (isUserMotion || windowResize) {
       userPosition = map.getCenter().toArray();
       nowAtUserPosition = true;
     }
@@ -1739,6 +1777,25 @@ function returnToUserPosition() {
   if (userPosition) map.panTo(userPosition, { animate: false });
   if (userZoom) map.zoomTo(userZoom, { animate: false });
   document.getElementById("returnToUserPosition").style.display = "none"
+}
+
+function map_gethome() {
+  userMotionFlg = true;
+
+  var ZoomBounds = turf.bbox(turf.points([[154, 46], [122, 20], [98, 35]]));
+
+  if (turf.booleanPointInPolygon([config.home.longitude, config.home.latitude], turf.bboxPolygon(ZoomBounds))) {
+    map.fitBounds(ZoomBounds, {
+      padding: 10, animate: false
+    });
+  } else {
+    map.panTo([config.home.longitude, config.home.latitude], { animate: false });
+    map.zoomTo(4, { animate: false });
+  }
+
+  userMotionFlg = false;
+  userPosition = map.getCenter().toArray();
+  userZoom = map.getZoom();
 }
 
 //観測点情報更新
@@ -1790,9 +1847,6 @@ function kmoniMapUpdate(dataTmp, type) {
           type: "Feature",
           properties: {
             Code: elm.Code,
-            IsSuspended: elm.IsSuspended,
-            Name: elm.Name,
-            Region: elm.Region,
             Type: elm.Type,
             data: elm.data,
             pga: elm.pga,
@@ -2002,7 +2056,7 @@ function JMAEstShindoDraw() {
 //🔴予報円🔴
 //予報円追加
 function psWaveEntry() {
-  now_EEW.forEach(function (elm) {
+  current_EEW.forEach(function (elm) {
     if (!elm.is_cancel && elm.arrivalTime) {
       var countDownElm = document.getElementById("EEW-" + elm.EventID);
       if (countDownElm) {
@@ -2016,6 +2070,7 @@ function psWaveEntry() {
             if (countDown_min == 0) countDownElm.textContent = countDown_sec;
             else countDownElm.textContent = countDown_min + ":" + String(countDown_sec).padStart(2, "0");
           } else countDownElm.textContent = "0";
+          countDownElm.style.fontSize = countDown < 600 ? "16px" : "13px";//10分以上なら文字縮小
         }
       }
     }
@@ -2029,6 +2084,7 @@ function psWaveEntry() {
         pswaveFind.data.longitude = elm.longitude;
         pswaveFind.data.latitude = elm.latitude;
         pswaveFind.TimeTable = elm.TimeTable;
+        pswaveFind.TimeTable2 = elm.TimeTable2;
       } else {
         psWaveList.push({
           id: elm.EventID,
@@ -2038,6 +2094,7 @@ function psWaveEntry() {
             originTime: elm.origin_time,
           },
           TimeTable: elm.TimeTable,
+          TimeTable2: elm.TimeTable2,
         });
       }
       psWaveCalc(elm.EventID);
@@ -2046,7 +2103,7 @@ function psWaveEntry() {
 
   //終わった地震の予報円削除
   psWaveList = psWaveList.filter(function (elm) {
-    var stillEEW = now_EEW.find(function (elm2) {
+    var stillEEW = current_EEW.find(function (elm2) {
       return elm2.EventID == elm.id;
     });
     if (!stillEEW || stillEEW.is_cancel) {
@@ -2067,39 +2124,45 @@ function psWaveCalc(eid) {
     return elm2.id == eid;
   });
   if (pswaveFind) {
-    var TimeTableTmp = pswaveFind.TimeTable;
-    var SWmin;
-    var distance = (new Date() - Replay - new Date(pswaveFind.data.originTime)) / 1000;
+    //JMA2001走時表による予報
+    var passedTime = (new Date() - Replay - new Date(pswaveFind.data.originTime)) / 1000;
 
-    var PRadius = null;
-    var SRadius = null;
+    function est_radius(TTable) {
+      var SfirstArrival = TTable.s[0].t
 
-    var i = 0;
-    SWmin = TimeTableTmp[0].S;
-    for (const elm of TimeTableTmp) {
-      if (!PRadius) {
-        if (elm.P == distance) {
-          PRadius = elm.R;
-          if (SRadius || SWmin > distance) break;
-        } else if (elm.P > distance) {
-          var elm2 = TimeTableTmp[Math.max(i - 1, 0)];
-          PRadius = elm.R + ((elm2.R - elm.R) * (distance - elm.P)) / (elm2.P - elm.P);
-          if (SRadius || SWmin > distance) break;
+      var PRadius = null;
+      var SRadius = null;
+
+      var i = 0;
+      for (const elm of TTable.p) {
+        if (!PRadius) {
+          if (elm.t >= passedTime) {
+            //前後の値から線形補完
+            var elm2 = TTable.p[Math.max(i - 1, 0)];
+            PRadius = elm.r + ((elm2.r - elm.r) * (passedTime - elm.t)) / (elm2.t - elm.t);
+            break;
+          }
         }
       }
-      if (!SRadius && SWmin < distance) {
-        if (elm.S == distance) {
-          SRadius = elm.R;
-          if (PRadius) break;
-        } else if (elm.S > distance) {
-          elm2 = TimeTableTmp[Math.max(i - 1, 0)];
-          SRadius = elm.R + ((elm2.R - elm.R) * (distance - elm.S)) / (elm2.S - elm.S);
-          if (PRadius) break;
+      for (const elm of TTable.s) {
+        if (!SRadius && SfirstArrival < passedTime) {
+          if (elm.t >= passedTime) {
+            //前後の値から線形補完
+            elm2 = TTable.s[Math.max(i - 1, 0)];
+            SRadius = elm.r + ((elm2.r - elm.r) * (passedTime - elm.t)) / (elm2.t - elm.t);
+            break;
+          }
         }
+        i++;
       }
-      i++;
+      return [PRadius, SRadius, SfirstArrival];
     }
-    if (SWmin > distance) {
+
+    var [PRadius, SRadius, SfirstArrival] = est_radius(pswaveFind.TimeTable);
+    if ((!PRadius || !SRadius) && SfirstArrival < passedTime) {
+      var [PRadius, SRadius, SfirstArrival] = est_radius(pswaveFind.TimeTable2);
+    }
+    if (SfirstArrival > passedTime) {
       window.requestAnimationFrame(function () {
         psWaveReDraw(
           pswaveFind.id,
@@ -2107,11 +2170,12 @@ function psWaveCalc(eid) {
           pswaveFind.data.longitude,
           PRadius * 1000,
           0,
-          true, //S波未到達
-          SWmin, //発生からの到達時間
-          distance //現在の経過時間
+          true, //S波未到達フラグ
+          SfirstArrival, //発生からの到達時間
+          passedTime //現在の経過時間
         );
       });
+      return;
     } else {
       window.requestAnimationFrame(function () {
         psWaveReDraw(
@@ -2122,27 +2186,94 @@ function psWaveCalc(eid) {
           SRadius * 1000
         );
       });
+      return;
     }
+
   }
+
+  /*
+  if (pswaveFind) {
+    //JMA2001走時表による予報
+    var TTable = pswaveFind.TimeTable;
+    var SfirstArrival = TTable[0].S;
+    var distance = (new Date() - Replay - new Date(pswaveFind.data.originTime)) / 1000;
+
+    var PRadius = null;
+    var SRadius = null;
+
+    var i = 0;
+    for (const elm of TTable) {
+      if (!PRadius) {
+        if (elm.P == distance) {
+          PRadius = elm.R;
+          if (SRadius || SfirstArrival > distance) break;
+        } else if (elm.P > distance) {
+          var elm2 = TTable[Math.max(i - 1, 0)];
+          PRadius = elm.R + ((elm2.R - elm.R) * (distance - elm.P)) / (elm2.P - elm.P);
+          if (SRadius || SfirstArrival > distance) break;
+        }
+      }
+      if (!SRadius && SfirstArrival < distance) {
+        if (elm.S == distance) {
+          SRadius = elm.R;
+          if (PRadius) break;
+        } else if (elm.S > distance) {
+          elm2 = TTable[Math.max(i - 1, 0)];
+          SRadius = elm.R + ((elm2.R - elm.R) * (distance - elm.S)) / (elm2.S - elm.S);
+          if (PRadius) break;
+        }
+      }
+      i++;
+    }
+    if (SfirstArrival > distance) {
+      window.requestAnimationFrame(function () {
+        psWaveReDraw(
+          pswaveFind.id,
+          pswaveFind.data.latitude,
+          pswaveFind.data.longitude,
+          PRadius * 1000,
+          0,
+          true, //S波未到達
+          SfirstArrival, //発生からの到達時間
+          distance //現在の経過時間
+        );
+      });
+      return;
+    } else {
+      window.requestAnimationFrame(function () {
+        psWaveReDraw(
+          pswaveFind.id,
+          pswaveFind.data.latitude,
+          pswaveFind.data.longitude,
+          PRadius * 1000,
+          SRadius * 1000
+        );
+      });
+      return;
+    }
+  }*/
 }
 
-let circle_options = { steps: 60, units: "kilometers" };
+let circle_options = { steps: 80, units: "kilometers" };
 //予報円描画
 function psWaveReDraw(EventID, latitude, longitude, pRadius, sRadius, SnotArrived, SArriveTime, nowDistance) {
   if (!map) return;
   var EQElm = psWaveList.find(function (elm) {
     return elm.id == EventID;
   });
-  var EQElm2 = now_EEW.find(function (elm) {
+  var EQElm2 = current_EEW.find(function (elm) {
     return elm.EventID == EventID;
   });
   if (EQElm) {
     let _center = turf.point([longitude, latitude]);
+    var limit_n = turf.lineString([[-180, 83], [180, 83]]);//Webメルカトルの北端（85.051+マージン）
+    var limit_s = turf.lineString([[-180, -83], [180, -83]]);//Webメルカトルの南端（85.051+マージン）
+    var limitOfRadius = 1000 * Math.min(turf.pointToLineDistance(_center, limit_n, { units: "kilometers" }), turf.pointToLineDistance(_center, limit_s, { units: "kilometers" }));
 
     if (map && map.getSource("PCircle_" + EventID)) {
       var PCircleElm = map.getSource("PCircle_" + EventID);
       if (PCircleElm) {
-        if (pRadius) {
+        if (pRadius && pRadius < limitOfRadius) {
           var pcircle = turf.circle(_center, pRadius / 1000, circle_options);
           PCircleElm.setData(pcircle);
           if (map.getLayer("PCircle_" + EventID)) map.setPaintProperty("PCircle_" + EventID, "line-width", 2);
@@ -2151,7 +2282,7 @@ function psWaveReDraw(EventID, latitude, longitude, pRadius, sRadius, SnotArrive
 
       var SCircleElm = map.getSource("SCircle_" + EventID);
       if (SCircleElm) {
-        if (sRadius) {
+        if (sRadius && sRadius < limitOfRadius) {
           var scircle = turf.circle(_center, sRadius / 1000, circle_options);
           SCircleElm.setData(scircle);
           if (map.getLayer("SCircle_" + EventID)) {
@@ -2164,10 +2295,11 @@ function psWaveReDraw(EventID, latitude, longitude, pRadius, sRadius, SnotArrive
         }
       }
     } else {
+      var p_geometry = turf.circle(_center, pRadius ? pRadius / 1000 : 0, circle_options)
       map.addSource("PCircle_" + EventID, {
         type: "geojson",
-        data: turf.circle(_center, pRadius / 1000, circle_options),
-        tolerance: 0.6,
+        data: p_geometry,
+        tolerance: 0,
       });
 
       map.addLayer({
@@ -2181,10 +2313,11 @@ function psWaveReDraw(EventID, latitude, longitude, pRadius, sRadius, SnotArrive
       });
 
       var sRadTmp = sRadius ? sRadius / 1000 : 0;
+      var s_geometry = turf.circle(_center, sRadTmp, circle_options)
       map.addSource("SCircle_" + EventID, {
         type: "geojson",
-        data: turf.circle(_center, sRadTmp, circle_options),
-        tolerance: 0.6,
+        data: s_geometry,
+        tolerance: 0,
       });
 
       map.addLayer({
@@ -2208,6 +2341,17 @@ function psWaveReDraw(EventID, latitude, longitude, pRadius, sRadius, SnotArrive
         },
         "tsunami_Yoho"
       );
+
+      var ZoomBounds = new maplibregl.LngLatBounds();
+      ZoomBounds.extend(_center);
+      ZoomBounds.extend(turf.bbox(p_geometry));
+      ZoomBounds.extend(turf.bbox(s_geometry));
+
+      map.setMaxZoom(8);
+      map.fitBounds(ZoomBounds, {
+        padding: 10, maxZoom: 8, animate: false
+      });
+      map.setMaxZoom(null);
 
       EQElm = psWaveList[psWaveList.length - 1];
 
@@ -2293,7 +2437,6 @@ function psWaveReDraw(EventID, latitude, longitude, pRadius, sRadius, SnotArrive
 //津波情報更新
 var EQInfoLink = document.getElementById("EQInfoLink");
 var tsunamiData;
-var now_tsunami = false;
 var tsunamiSTMarkers = [];
 function tsunamiDataUpdate(data) {
   tsunamiData = data;
@@ -2309,16 +2452,13 @@ function tsunamiDataUpdate(data) {
   document.querySelector("#tsunamiWrap .TestNotes").style.display = data.status == "試験" ? "block" : "none";
   document.querySelector("#tsunamiWrap .trainingNotes").style.display = data.status == "訓練" ? "block" : "none";
 
-  now_tsunami = true;
-
   tsunamiSTMarkers.forEach(function (elm) {
     elm.remove();
   });
 
-  if (data.cancelled) {
+  if (data.cancelled || data.revocation || data.Torikeshi) {
     document.getElementById("tsunamiWrap").style.display = "none";
     document.body.classList.remove("TsunamiMode");
-    now_tsunami = false;
   } else {
     EQInfoLink.style.display = "none";
     if (Array.isArray(data.issue.EventID) && data.issue.EventID.length) {
@@ -2527,11 +2667,9 @@ function tsunamiDataUpdate(data) {
       document.getElementById("tsunamiWrap").style.display = "none";
       document.body.classList.remove("TsunamiMode");
       Tsunami_MajorWarning = Tsunami_Warning = Tsunami_Watch = false;
-      now_tsunami = false;
     } else if (!alertNowTmp && tsunamiAlertNow) {
       document.getElementById("tsunamiWrap").style.display = "none";
       document.body.classList.remove("TsunamiMode");
-      now_tsunami = false;
       Tsunami_MajorWarning = Tsunami_Warning = Tsunami_Watch = false;
     }
     tsunamiAlertNow = alertNowTmp;
@@ -2555,15 +2693,12 @@ function tsunamiDataUpdate(data) {
     else
       document.getElementById("tsunamiTitle").style.borderColor = tsunamiColorConv("Yoho");
   }
-
-  document.getElementById("noEEW").style.display = now_EEW.length == 0 && !now_tsunami && EQDetectItem.length == 0 ? "block" : "none";
 }
 
 var EQinfo_Index = 0;
 EQInfoLink.addEventListener("click", function (e) {
   e.preventDefault();
   document.getElementById("tab1_menu1").click()
-  document.getElementById("tab2_menu1").click()
   var EIDs = EQInfoLink.dataset.eventid.split(",");
   EIDs.forEach(function (elm, index) {
     var EQItemElm = document.querySelector(elm);
@@ -2759,6 +2894,82 @@ document.getElementById("tab1_menu2").addEventListener("click", function () {
     window.electronAPI.messageReturn({ action: "Request_gaikyo" });
   }
 });
+document.getElementById("tab1_menu5").addEventListener("click", function () {
+  if (new Date() - tide_lastUpdate > 60000) {
+    window.electronAPI.messageReturn({ action: "Request_tide" });
+  }
+});
+document.getElementById("tab1_menu3").addEventListener("click", function () {
+  if (new Date() - wepa_lastUpdate > 60000) {
+    window.electronAPI.messageReturn({ action: "Request_wepa" });
+  }
+});
+document.getElementById("tab1_menu4").addEventListener("click", function () {
+  if (new Date() - usgs_lastUpdate > 60000) {
+    window.electronAPI.messageReturn({ action: "Request_usgs" });
+  }
+});
+
+var tide_lastUpdate = 0;
+function draw_tide(data) {
+  tide_lastUpdate = new Date();
+  if (!data || data.length == 0)
+    document.getElementById("tide_update_time").innerText = "更新失敗：" + NormalizeDate("hh:mm:ss", new Date());
+  else {
+    document.getElementById("tide_update_time").innerText = "最終更新：" + NormalizeDate("hh:mm:ss", new Date());
+    document.getElementById("tide_update_time").setAttribute("aria-label", "最終更新時刻、" + NormalizeDate("h時m分s秒", new Date()));
+  }
+  removeChild(document.getElementById("tide-Wrap"));
+
+  //データバーの表示範囲をそろえるため事前にループ
+  var range_min = 0
+  var range_max = 0
+  var adv_exists = Boolean(Object.keys(data).find(function (key) {
+  }));
+  Object.keys(data).forEach(function (key) {
+    elm = data[key];
+    var adv_exists = elm.height >= elm.threshold_advisory;
+    var warn_threshold = adv_exists ? elm.threshold_warn : 0;//注意報基準超過の場合のみ警報基準を範囲に含める
+    var range_min_tmp = Math.min(elm.height, elm.astro, elm.threshold_advisory, warn_threshold, 0)
+    range_min = Math.min(range_min_tmp, range_min)
+    var range_max_tmp = Math.max(elm.height, elm.astro, elm.threshold_advisory, warn_threshold, 0)
+    range_max = Math.max(range_max_tmp, range_max)
+  })
+  var margin = (range_max - range_min) * 0.07
+  range_max += margin
+  range_min -= margin
+
+  Object.keys(data).forEach(function (key, index) {
+    elm = data[key];
+    var clone = document.getElementById("tide-item")
+      .content.cloneNode(true).querySelector(".EQItem");
+
+    if (index == 0) clone.setAttribute("tabindex", 2);
+
+    var dateToSpeak = NormalizeDate("M月D日h時m分", elm.time);
+    var dateStr = NormalizeDate("MM/DD hh:mm", elm.time);
+    clone.querySelector(".EQI_datetime").textContent = dateStr;
+
+    clone.querySelector(".EQI_name").textContent = elm.name;
+    clone.querySelector(".EQI_by").textContent = `(${elm.by})`;
+
+    clone.querySelector(".EQI_height").textContent = elm.height.toFixed(0);
+
+    function to_percent(v) {
+      return (v - range_min) / (range_max - range_min) * 100
+    }
+    clone.querySelector(".EQI_databar_v").style.width = `${to_percent(elm.height)}%`;
+    clone.querySelector(".EQI_point_astro").style.left = `calc(${to_percent(elm.astro)}% - 2px)`;
+    clone.querySelector(".EQI_point_adv").style.left = `calc(${to_percent(elm.threshold_advisory)}% - 2px)`;
+    clone.querySelector(".EQI_point_warn").style.left = `calc(${to_percent(elm.threshold_warn)}% - 2px)`;
+
+    clone.setAttribute("aria-label", `潮位観測情報、観測点名は${elm.name}(${elm.by})。潮位${elm.height.toFixed(0)}センチ、${dateToSpeak}時点。なお、天文潮位は${elm.astro}センチ、高潮注意報基準は${elm.threshold_advisory}センチ、高潮警報基準は${elm.threshold_warn}センチ。クリックして詳細を表示。`);
+    clone.addEventListener("click", function () {
+      window.open(`https://www.jma.go.jp/bosai/tidelevel/#point_code=${data[key].code}`);
+    });
+    document.getElementById("tide-Wrap").appendChild(clone);
+  });
+}
 
 var gaikyo_lastUpdate = 0;
 var gaikyo_history = [];
@@ -2766,9 +2977,10 @@ function draw_gaikyo(data) {
   gaikyo_lastUpdate = new Date();
   if (!data || data.length == 0)
     document.getElementById("gaikyo_update_time").innerText = "更新失敗：" + NormalizeDate("hh:mm:ss", new Date());
-  else
-    document.getElementById("gaikyo_update_time").innerText = "更新：" + NormalizeDate("hh:mm:ss", new Date());
-
+  else {
+    document.getElementById("gaikyo_update_time").innerText = "最終更新：" + NormalizeDate("hh:mm:ss", new Date());
+    document.getElementById("gaikyo_update_time").setAttribute("aria-label", "最終更新時刻、" + NormalizeDate("h時m分s秒", new Date()));
+  }
   if (gaikyo_history.length == data.length) return;
   gaikyo_history = data;
   removeChild(document.getElementById("gaikyo-Wrap"));
@@ -2807,19 +3019,15 @@ function draw_gaikyo(data) {
   });
 }
 
-document.getElementById("tab1_menu3").addEventListener("click", function () {
-  if (new Date() - wepa_lastUpdate > 60000) {
-    window.electronAPI.messageReturn({ action: "Request_wepa" });
-  }
-});
-
 var wepa_lastUpdate = 0;
 function draw_wepa(data) {
   wepa_lastUpdate = new Date();
   if (!data || data.length == 0)
     document.getElementById("wepa_update_time").innerText = "データがありません：" + NormalizeDate("hh:mm:ss", new Date());
-  else
-    document.getElementById("wepa_update_time").innerText = "更新：" + NormalizeDate("hh:mm:ss", new Date());
+  else {
+    document.getElementById("wepa_update_time").innerText = "最終更新：" + NormalizeDate("hh:mm:ss", new Date());
+    document.getElementById("wepa_update_time").setAttribute("aria-label", "最終更新時刻、" + NormalizeDate("h時m分s秒", new Date()));
+  }
 
   removeChild(document.getElementById("wepa-Wrap"));
   data.forEach(function (elm, index) {
@@ -2834,7 +3042,7 @@ function draw_wepa(data) {
 
       clone.querySelector(".EQI_datetime").textContent = dateStr;
 
-      clone.setAttribute("aria-label", "国際津波情報" + dateToSpeak);
+      clone.setAttribute("aria-label", "国際津波情報、" + dateToSpeak);
       clone.addEventListener("click", function () {
         window.electronAPI.messageReturn({
           action: "wepa_window",
@@ -2845,6 +3053,8 @@ function draw_wepa(data) {
     }
   });
 }
+
+var usgs_lastUpdate = 0;
 
 
 function hinanjoPopup(e) {

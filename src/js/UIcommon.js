@@ -49,6 +49,7 @@ function SetShindoColor() {
   root.style.setProperty("--TsunamiWarningColor", config.color.Tsunami.TsunamiWarningColor);
   root.style.setProperty("--TsunamiWatchColor", config.color.Tsunami.TsunamiWatchColor);
   root.style.setProperty("--TsunamiYohoColor", config.color.Tsunami.TsunamiYohoColor);
+  root.style.setProperty("--AstroHeightColor", config.color.Tsunami.AstroHeightColor);
 }
 
 window.addEventListener("load", function () {
@@ -122,6 +123,8 @@ function NormalizeShindo(str, responseType) {
       case "70":
         ShindoTmp = 9;
         break;
+      case "未":
+      case "５弱以上未入電":
       case "震度5-以上未入電":
       case "5+?":
         ShindoTmp = 10;

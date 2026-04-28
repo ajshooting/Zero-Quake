@@ -33,6 +33,7 @@
                     <div id="tab1_menu11" class="tabmenu active_tabmenu" tabindex="0" ZQ-focusgroup-item role="tab" aria-controls="tab1_content11"><span class="material-icons-round" aria-hidden="true"> construction</span>システム設定</div>
                     <div id="tab1_menu1" class="tabmenu" tabindex="-1" ZQ-focusgroup-item role="tab" aria-controls="tab1_content1"><span class="material-icons-round" aria-hidden="true">home </span>現在地</div>
                     <div id="tab1_menu13" class="tabmenu" tabindex="-1" ZQ-focusgroup-item role="tab" aria-controls="tab1_content13"><span class="material-icons-round" aria-hidden="true"> history</span>シミュレーション</div>
+                    <div id="tab1_menu3" class="tabmenu" tabindex="-1" ZQ-focusgroup-item role="tab" aria-controls="tab1_content3"><span class="material-icons-round" aria-hidden="true">volume_up</span>音声</div>
                 </div>
 
                 <h2><span class="material-icons-round" aria-hidden="true">info</span>情報種別ごとの設定</h2>
@@ -48,6 +49,10 @@
                     <div id="tab1_menu6" class="tabmenu" tabindex="-1" ZQ-focusgroup-item role="tab" aria-controls="tab1_content6">
                         <span class="material-icons-round" aria-hidden="true">tsunami</span>
                         津波情報
+                    </div>
+                    <div id="tab1_menu18" class="tabmenu" tabindex="-1" ZQ-focusgroup-item role="tab" aria-controls="tab1_content18">
+                        <span class="material-icons-round" aria-hidden="true">bar_chart</span>
+                        潮位観測情報
                     </div>
                     <div id="tab1_menu7" class="tabmenu" tabindex="-1" ZQ-focusgroup-item role="tab" aria-controls="tab1_content7">
                         <span class="material-icons-round" aria-hidden="true">update</span>
@@ -80,12 +85,6 @@
                     </div>
                 </div>
 
-                <h2><span class="material-icons-round" aria-hidden="true">notifications</span>通知と音声</h2>
-                <div class="_tabgroup">
-                    <div id="tab1_menu3" class="tabmenu" tabindex="-1" ZQ-focusgroup-item role="tab" aria-controls="tab1_content3"><span class="material-icons-round" aria-hidden="true">volume_up</span>音声</div>
-                    <div id="tab1_menu10" class="tabmenu" tabindex="-1" ZQ-focusgroup-item role="tab" aria-controls="tab1_content10"><span class="material-icons-round" aria-hidden="true">chat</span>画面表示</div>
-                </div>
-
                 <div id="tab1_menu2" class="tabmenu" tabindex="-1" ZQ-focusgroup-item role="tab" aria-controls="tab1_content2">
                     <span class="material-icons-round" aria-hidden="true">assignment</span>
                     Zero Quakeについて
@@ -110,8 +109,10 @@
 
                     <label><input id="HomePinShow" type="checkbox">現在地ピンを表示</label>
                     <label>表示名<input id="HomeName" type="text" placeholder="自宅"></label>
-                    <label>緯度<input id="latitude" type="number" onchange="MapReDraw()" min="-90" max="90" placeholder="緯度（10進法）"></label>
-                    <label>経度<input id="longitude" type="number" onchange="MapReDraw()" min="-180" max="180" placeholder="経度（10進法）"></label>
+                    <div class="h_grid">
+                        <label>緯度<input id="latitude" type="number" onchange="MapReDraw()" min="-90" max="90" placeholder="緯度（10進法）"></label>
+                        <label>経度<input id="longitude" type="number" onchange="MapReDraw()" min="-180" max="180" placeholder="経度（10進法）"></label>
+                    </div>
                     <label>細分区域<select id="saibun" onchange="MapReDraw()">
                             <option selected disabled>（未選択）</option>
                             <option>石狩地方北部</option>
@@ -389,12 +390,18 @@
                 </section>
             </div>
             <div id="tab1_content3" class="tabcontent" role="tabpanel" aria-labelledby="tab1_menu3">
-                <h3><span>通知と音声</span>通知音 / 音声合成</h3>
+                <h3><span>全般</span>通知音 / 音声合成</h3>
+                <h4>通知音の調整</h4>
+                <section>
+                    <label> 音量：<input id="NotificationVolumeN" type="number" min="0" max="1" value="1" step="0.05" oninput="volumeSet(this.value)" placeholder="音量（0~1）"><input id="NotificationVolumeR" type="range" min="0" max="1" value="1" step="0.05" oninput="volumeSet(this.value)"></label>
+                    <div class="smalltext">ベル音などの調整を行います。合成音声の音量は「合成音声の調整」から独立して調整できます。</div>
+                </section>
+
                 <h4>合成音声の調整</h4>
                 <section>
+                    <label> 音量：<input id="TTSVolumeN" type="number" min="0" max="1" value="1" step="0.05" oninput="TTSvolumeSet(this.value)" placeholder="音量（0~1）"><input id="TTSVolumeR" type="range" min="0" max="1" value="1" step="0.05" oninput="TTSvolumeSet(this.value)"></label>
                     <label> 話速：<input id="TTSSpeedN" type="number" min="0.1" max="10" value="1" step="0.1" oninput="TTSspeedSet(this.value)" placeholder="話速（0.1~10）"><input id="TTSSpeedR" type="range" min="0.1" max="10" value="1" step="0.1" oninput="TTSspeedSet(this.value)"></label>
                     <label> 音高：<input id="TTSPitchN" type="number" min="0" max="2" value="1" step="0.05" oninput="TTSpitchSet(this.value)" placeholder="音高（0~2）"><input id="TTSPitchR" type="range" min="0" max="2" value="1" step="0.05" oninput="TTSpitchSet(this.value)"></label>
-                    <label> 音量：<input id="TTSVolumeN" type="number" min="0" max="1" value="1" step="0.05" oninput="TTSvolumeSet(this.value)" placeholder="音量（0~1）"><input id="TTSVolumeR" type="range" min="0" max="1" value="1" step="0.05" oninput="TTSvolumeSet(this.value)"></label>
                     <button id="speak_test">テスト</button>
                 </section>
 
@@ -425,7 +432,7 @@
 
                 <h4>その他</h4>
                 <section>
-                    <div class="smalltext">読み上げ内容の設定は、「設定>情報種別ごとの設定」から行ってください。</div>
+                    <div class="smalltext">読み上げ内容や各種通知条件の設定は、「設定>情報種別ごとの設定」から行ってください。</div>
                 </section>
             </div>
             <div id="tab1_content2" class="tabcontent" role="tabpanel" aria-labelledby="tab1_menu2">
@@ -433,11 +440,11 @@
                 <h2 id="softName"><a href="https://0quake.github.io/ZeroQuake_Website/"><img src="./img/icon.svg">Zero Quake v<span id="softVersion">取得中</span></a></h2>
 
                 <div id="smallWrap">
-                    <small>&copy;2022-2025 Benidate</small>
+                    <small>&copy;2022-2026 Benidate</small>
                     <div id="flex_wrap">
                         <div>
                             <p><a href="../LICENSE.md" target="_blank">GNU General Public License v2.0</a></p>
-                            <p>このソフトウェアは無保証です。</p>
+                            <p>このソフトウェアは無保証です。 <a href="../THIRD-PARTY-LICENSES.txt" target="_blank" style="font-size: 14px;">OSSライセンス</a></p>
                         </div>
                         <div>
                             <img src="./img/UDFONT.svg" id="ud_logo">
@@ -445,27 +452,30 @@
                     </div>
                 </div>
 
-                <section id="update-wrap">
-                    <h3>アプリケーションの更新</h3>
-                    <div id="flexContainer">
-                        <div id="update-icon">
+                <div style="text-align: center;">
+                    <section id="update-wrap">
+                        <h3>アプリケーションの更新</h3>
+                        <div id="flexContainer">
+                            <div id="update-icon">
 
-                        </div>
-                        <div id="update-content">
-                            <div><span id="update-status"></span><span id="update-version"></span></div>
-                            <div id="update-check-date-wrap">前回の確認：<span id="update-check-date"></span></div>
-                            <div id="update_BtnWrap">
-                                <button id="downloadLink">更新の開始</button>
+                            </div>
+                            <div id="update-content">
+                                <div><span id="update-status"></span><span id="update-version"></span></div>
+                                <div id="update-check-date-wrap">前回の確認：<span id="update-check-date"></span></div>
+                                <div id="update_BtnWrap">
+                                    <button id="downloadLink">更新の開始</button>
+                                </div>
+                            </div>
+                            <div id="update-button-wrap">
+                                <button id="check_update">更新の確認</button>
                             </div>
                         </div>
-                        <div id="update-button-wrap">
-                            <button id="check_update">更新の確認</button>
-                        </div>
-                    </div>
-                    <div id="update-detail"></div>
-                </section>
+                        <div id="update-detail"></div>
+                    </section>
+                </div>
 
                 <hr>
+
 
                 <h2 id="ご注意">ご注意</h2>
                 <ul>
@@ -480,23 +490,23 @@
                 <ul>
                     <li>
                         <h3 id="緊急地震速報-気象庁">緊急地震速報 (気象庁)</h3>
-                        <p>予報・警報／キャンセル報／PLUM 法など含む</p>
+                        <p>予報・警報／キャンセル報／PLUM 法など含む<br>複数報同時受信に対応</p>
                         <details>
                             <summary>出典・情報源</summary>
                             <ul>
+                                <li>Axis (By:Prioris)（無料登録必須）</li>
                                 <li>Wolfx (By: Wolfx Project)</li>
                                 <li>ProjectBS (By: CrossRoad)</li>
-                                <li>Axis (By:Prioris)（無料登録必須）</li>
                                 <li>P2P 地震情報 API (By: P2P地震情報)（警報のみ）</li>
                             </ul>
                         </details>
                     </li>
                     <li>
                         <h3 id="地震情報-気象庁">地震情報 (気象庁)</h3>
-                        <p>震度速報 ／ 震源に関する情報 ／ 震度・震源に関する情報[震度・震源情報/遠地地震に関する情報]<br>
+                        <p>震度速報 ／ 震源に関する情報 ／ 震度・震源に関する情報 <em>[震度・震源情報/遠地地震に関する情報]</em><br>
                             長周期地震動に関する観測情報※ ／ 顕著な地震の震源要素更新のお知らせ ／ 推計震度分布※<br>
-                            南海トラフ地震に関連する情報[南海トラフ地震臨時情報/南海トラフ地震関連解説情報]
-                            北海道・三陸沖後発地震注意情報／地震回数に関する情報</p>
+                            南海トラフ地震に関連する情報 <em>[南海トラフ地震臨時情報/南海トラフ地震関連解説情報]</em>
+                            地震の活動状況等に関する情報／北海道・三陸沖後発地震注意情報／地震回数に関する情報</p>
                         <details>
                             <summary>出典・情報源</summary>
                             <ul>
@@ -509,13 +519,15 @@
                     </li>
                     <li>
                         <h3 id="津波情報-気象庁">津波情報 (気象庁)</h3>
-                        <p>大津波警報／津波警報／津波注意報／津波予報※<br>
-                            津波情報／沖合の津波観測に関する情報※</p>
+                        <p>大津波警報☆／津波警報☆／津波注意報☆／津波予報<br>
+                            津波情報☆／沖合の津波観測に関する情報
+                            国際津波関連情報(WEPA40)※</p>
                         <details>
                             <summary>出典・情報源</summary>
                             <ul>
                                 <li>出典：<a href="https://xml.kishou.go.jp/xmlpull.html">気象庁防災情報 XML</a></li>
-                                <li>P2P 地震情報 API（※の項目を除く）</li>
+                                <li>出典：<a href="https://www.jma.go.jp/bosai/map.html#contents=pacifictsunami">気象庁ホームページ</a>（※の項目のみ）</li>
+                                <li>P2P 地震情報 API（☆の項目のみ）</li>
                             </ul>
                         </details>
                     </li>
@@ -548,6 +560,16 @@
                         </details>
                     </li>
                     <li>
+                        <h3 id="潮汐">潮汐</h3>
+                        <p>潮位観測情報</p>
+                        <details>
+                            <summary>出典・情報源</summary>
+                            <ul>
+                                <li>出典：<a href="https://www.jma.go.jp/bosai/map.html?contents=tidelevel">気象庁ホームページ「潮位観測情報」</a></li>
+                            </ul>
+                        </details>
+                    </li>
+                    <li>
                         <h3 id="海外の地震情報">海外の地震情報</h3>
                         <ol>
                             <li>USGS Earthquake Catalog</li>
@@ -565,65 +587,47 @@
                 <h2 id="その他の出典表示">その他の出典表示</h2>
                 <h3 id="地図データ">地図データ</h3>
                 <ul>
-                    <li>
-                        <p>国内陸地 出典： 気象庁「<a href="https://www.data.jma.go.jp/developer/gis.html">地震情報／細分区域</a>」※</p>
-                    </li>
-                    <li>
-                        <p>国内湖沼 出典：国土交通省「<a href="https://nlftp.mlit.go.jp/ksj/gml/datalist/KsjTmplt-W09-v2_2.html">国土数値情報(湖沼データ)</a>」※</p>
-                    </li>
-                    <li>
-                        <p>国外陸地 出典：Natural Earth※</p>
-                    </li>
-                    <li>
-                        <p>プレート境界 出典</p>
+                    <li>国内陸地 出典： 気象庁「<a href="https://www.data.jma.go.jp/developer/gis.html">地震情報／細分区域</a>」※</li>
+                    <li>国内湖沼 出典：国土交通省「<a href="https://nlftp.mlit.go.jp/ksj/gml/datalist/KsjTmplt-W09-v2_2.html">国土数値情報(湖沼データ)</a>」※</li>
+                    <li>国外陸地 出典：Natural Earth※</li>
+                    <li>プレート境界 出典
                         <ol>
                             <li><a href="http://opendatacommons.org/licenses/by/1.0/">© Hugo Ahlenius, Nordpil, Peter Bird</a></li>
                             <li>気象庁「<a href="https://www.data.jma.go.jp/eqdb/data/shindo/">震度データベース検索</a>」(地図部分を編集して使用)</li>
                         </ol>
                     </li>
-                    <li>
-                        <p>海底地形 出典：GEBCO</p>
-                    </li>
-                    <li>
-                        <p><a href="https://www.openstreetmap.org/copyright/">© OpenStreetMap contributors</a></p>
-                    </li>
-                    <li>
-                        <p>最適化ベクトルタイル, 地理院タイル <a href="https://maps.gsi.go.jp/development/ichiran.html">© 国土地理院</a></p>
-                    </li>
+                    <li>海底地形 出典：GEBCO</li>
+                    <li><a href="https://www.openstreetmap.org/copyright/">© OpenStreetMap contributors</a></li>
+                    <li>最適化ベクトルタイル, 地理院タイル <a href="https://maps.gsi.go.jp/development/ichiran.html">© 国土地理院</a></li>
                 </ul>
                 <p>※加工（単純化処理）して使用</p>
                 <h3 id="フォント">フォント</h3>
                 <ul>
                     <li>© 2022 The BIZ UDGothic Project Authors /
-                        <a href="https://openfontlicense.org/open-font-license-official-text/">OFL</a>
-                    </li>
+                    <a href="https://openfontlicense.org/open-font-license-official-text/">OFL</a></li>
                     <li>© 2016 The M+ Project Authors. /
-                        <a href="https://openfontlicense.org/open-font-license-official-text/">OFL</a>
-                    </li>
+                    <a href="https://openfontlicense.org/open-font-license-official-text/">OFL</a></li>
                     <li>© 2021 The Azeret Project Authors /
-                        <a href="https://openfontlicense.org/open-font-license-official-text/">OFL</a>
-                    </li>
+                    <a href="https://openfontlicense.org/open-font-license-official-text/">OFL</a></li>
                     <li>© Google /
-                        <a href="https://raw.githubusercontent.com/google/material-design-icons/refs/heads/master/LICENSE">Apache License, Version 2.0</a>
-                    </li>
+                    <a href="https://raw.githubusercontent.com/google/material-design-icons/refs/heads/master/LICENSE">Apache License, Version 2.0</a></li>
                 </ul>
                 <h3 id="その他">その他</h3>
                 <ul>
-                    <li>
-                        <p>turf-distance（変更して使用） <a href="http://mit-license.org/">© 2014 Morgan Herlocker</a></p>
-                    </li>
-                    <li>
-                        <p>KyoshinShindoColorMap © ingen084, こんぽ</p>
-                    </li>
-                    <li>
-                        <p>表層地盤増幅率：防災科学技術研究所 ／ 下記文献</p>
+                <li>KyoshinShindoColorMap © ingen084, こんぽ</li>
+                <li>JMA2001走時表</li>
+                <li>Kennett, B. L. N. Seismological Tables: ak135.</li>
+                <li>表層地盤増幅率：防災科学技術研究所
+                    <details>
+                        <summary>原典</summary>
                         <ol>
                             <li>若松加寿江・松岡昌志(2013)：全国統一基準による地形・地盤分類 250m メッシュマップの構築とその利用，地震工学会誌 No.18, pp.35-38.</li>
-                            <li>Wakamatsu, K. and Matsuoka, M. (2013): &quot; Nationwide 7.5-Arc-Second Japan Engineering Geomorphologic Classification Map and Vs30 Zoning&quot;, Journal of Disaster Research Vol.8 No.5, pp.904-911.</li>
-                            <li>松岡昌志・若松加寿江(2008) ： 地形・地盤分類 250m メッシュマップ全国版に基づく地盤のゆれやすさデータ，産業技術総合研究所，知的財産管理番号 H20PRO-936．</li>
-                            <li>藤本一雄・翠川三郎(2006) : 近接観測点ペアの強震観測記録に基づく地盤増幅度と地盤の平均 S 波速度の関係,日本地震工学会論文集,Vol.6,No.1,pp.11-22.</li>
-                        </ol>
-                    </li>
+                <li>Wakamatsu, K. and Matsuoka, M. (2013): " Nationwide 7.5-Arc-Second Japan Engineering Geomorphologic Classification Map and Vs30 Zoning", Journal of Disaster Research Vol.8 No.5, pp.904-911.</li>
+                <li>松岡昌志・若松加寿江(2008) ： 地形・地盤分類 250m メッシュマップ全国版に基づく地盤のゆれやすさデータ，産業技術総合研究所，知的財産管理番号 H20PRO-936．</li>
+                <li>藤本一雄・翠川三郎(2006) : 近接観測点ペアの強震観測記録に基づく地盤増幅度と地盤の平均 S 波速度の関係,日本地震工学会論文集,Vol.6,No.1,pp.11-22.</li>
+                </ol>
+                </details>
+                </li>
                 </ul>
 
             </div>
@@ -632,6 +636,7 @@
 
                 <h4>全般</h4>
                 <section>
+                    <label><input type="checkbox" id="EEW_kodoriyou">高度利用者向けの緊急地震速報（予報）を表示</label>
                     <label><input type="checkbox" id="EEW_training">訓練報を受信</label>
                     <label>表示する予想震度
                         <select id="intType">
@@ -642,7 +647,53 @@
                     <div class="smalltext">点震源想定での予測値を下限、断層長（１／２）考慮による予測値を上限として表現する。 [緊急地震速報の概要や処理手法に関する技術的参考資料より]</div>
                 </section>
 
-                <h4>画面表示</h4>
+                <h4>通知条件</h4>
+                <div class="smalltext">音声通知・画面通知の条件を設定します。2つの条件のどちらかが一致すれば通知します（OR条件）。メイン画面には、条件にかかわらず情報が表示されます。</div>
+                <section>
+                    <h5>予想最大震度</h5>
+                    <label>しきい値
+                        <select id="EEW_IntFilter">
+                            <option value="0">すべて</option>
+                            <option value="1">震度1以上</option>
+                            <option value="2">震度2以上</option>
+                            <option value="3">震度3以上</option>
+                            <option value="4">震度4以上</option>
+                            <option value="5-">震度5弱以上</option>
+                            <option value="5+">震度5強以上</option>
+                            <option value="6-">震度6弱以上</option>
+                            <option value="6+">震度6強以上</option>
+                            <option value="7">震度7以上</option>
+                            <option value="99">条件なし</option>
+                        </select>
+                    </label>
+
+                    <label><input type="checkbox" id="EEW_IntI">予想最大震度 上昇時のみ更新報を通知</label>
+                    <label><input type="checkbox" id="EEW_IntQ">予想最大震度 不明時は常に通知</label>
+                    <div class="smalltext">予想最大震度 不明の状態で予想最大震度を含む更新報を受信した場合も「上昇」と扱います。</div>
+
+                    <h5>現在地の予想震度</h5>
+                    <label>しきい値
+                        <select id="EEW_userIntFilter">
+                            <option value="0">すべて</option>
+                            <option value="1">震度1以上</option>
+                            <option value="2">震度2以上</option>
+                            <option value="3">震度3以上</option>
+                            <option value="4">震度4以上</option>
+                            <option value="5-">震度5弱以上</option>
+                            <option value="5+">震度5強以上</option>
+                            <option value="6-">震度6弱以上</option>
+                            <option value="6+">震度6強以上</option>
+                            <option value="7">震度7以上</option>
+                            <option value="99">条件なし</option>
+                        </select>
+                    </label>
+
+                    <label><input type="checkbox" id="EEW_userIntQ">予想震度 不明時も通知</label>
+                    <div class="smalltext">現在地の揺れが小さい（概ね震度4未満）と評価される場合、予想震度は発表されないため「不明」として扱います。</div>
+
+                </section>
+
+                <h4>通知内容</h4>
                 <section>
                     <label>
                         緊急地震速報（初報）：
@@ -660,48 +711,6 @@
                             <option value="openWindow">メイン画面表示</option>
                         </select>
                     </label>
-                </section>
-
-                <h4>受信条件</h4>
-                <div class="smalltext">続報により 条件を満たさなくなった場合でも、その地震については情報の表示・更新を続けます。</div>
-                <section>
-                    <label><input type="checkbox" id="EEW_kodoriyou">高度利用者向けの緊急地震速報（予報）を表示</label>
-
-                    <h5>予想最大震度</h5>
-                    <label>しきい値
-                        <select id="EEW_userIntFilter">
-                            <option value="0">すべて</option>
-                            <option value="1">震度1以上</option>
-                            <option value="2">震度2以上</option>
-                            <option value="3">震度3以上</option>
-                            <option value="4">震度4以上</option>
-                            <option value="5-">震度5弱以上</option>
-                            <option value="5+">震度5強以上</option>
-                            <option value="6-">震度6弱以上</option>
-                            <option value="6+">震度6強以上</option>
-                            <option value="7">震度7以上</option>
-                        </select>
-                    </label>
-
-                    <label><input type="checkbox" id="EEW_IntQ">予想最大震度 不明時も通知</label>
-
-                    <h5>現在地の予想震度</h5>
-                    <label>しきい値
-                        <select id="EEW_IntFilter">
-                            <option value="0">すべて</option>
-                            <option value="1">震度1以上</option>
-                            <option value="2">震度2以上</option>
-                            <option value="3">震度3以上</option>
-                            <option value="4">震度4以上</option>
-                            <option value="5-">震度5弱以上</option>
-                            <option value="5+">震度5強以上</option>
-                            <option value="6-">震度6弱以上</option>
-                            <option value="6+">震度6強以上</option>
-                            <option value="7">震度7以上</option>
-                        </select>
-                    </label>
-
-                    <label><input type="checkbox" id="EEW_userIntQ">予想震度 不明時も通知</label>
                 </section>
 
                 <h4>音声合成文</h4>
@@ -1095,7 +1104,7 @@
                                 </tr>
                                 <tr>
                                     <td>一般向け</td>
-                                    <td>{max_grade}が発表されました。[{home_area}には{home_grade}が発表されています。{immediately}{home_area}には、{first_height1}{max_height1}が予想されます。]</td>
+                                    <td>{max_grade}が発表されました。{headline}[{home_area}には{home_grade}が発表されています。{immediately}{home_area}には、{first_height1}{max_height1}が予想されます。]</td>
                                 </tr>
                                 <tr>
                                     <td>詳細</td>
@@ -1302,10 +1311,6 @@
                     <span class="smalltext">WebSocketで随時情報を受け取ります。</span>
                 </section>
             </div>
-            <div id="tab1_content10" class="tabcontent" role="tabpanel" aria-labelledby="tab1_menu10">
-                <h3><span>通知と音声</span>画面表示</h3>
-                <p class="smalltext">画面表示による通知の設定は、「情報種別ごとの設定」から調整してください。</p>
-            </div>
             <div id="tab1_content11" class="tabcontent  active_tabcontent" role="tabpanel" aria-labelledby="tab1_menu11">
                 <h3><span>全般</span>システム設定</h3>
                 <h4>起動</h4>
@@ -1394,35 +1399,26 @@
                     <div>オフセット：<span id="replayOffset">-</span></div>
                     <p class="smalltext">リプレイ中はリアルタイムの情報が入手できません。リプレイで利用できるのは、強震モニタの情報のみです。</p>
                 </section>
-                <h4>緊急地震速報</h4>
+                <h4>緊急地震速報のシミュレーション</h4>
                 <section>
-                    <label>EventID<input type="number" min="19700101000001" max="99999999999999" value="1" step="1" placeholder="YYYYMMDDhhmmss" id="EEWE_EventID"></label>
+                    <h5>情報種別</h5>
+                    <div class="h_grid">
+                        <label>EventID<input type="number" min="19700101000001" max="99999999999999" value="1" step="1" placeholder="YYYYMMDDhhmmss" id="EEWE_EventID"></label>
+                        <label>報数<input type="number" min="1" max="9999" value="1" id="EEWE_serial" placeholder="第n報"></label>
+                    </div>
+                    <label>発表日時 <input id="EEWE_report_time" type="datetime-local" min="1970-01-01T00:00:00" step="1" placeholder="情報の発表日時"></label>
                     <label>種別<select id="EEWE_alertflg">
                             <option>警報</option>
                             <option>予報</option>
                         </select></label>
-                    <label>報数<input type="number" min="1" max="9999" value="1" id="EEWE_serial" placeholder="第n報"></label>
-                    <label>発表日時 <input id="EEWE_report_time" type="datetime-local" min="1970-01-01T00:00:00" step="1" placeholder="情報の発表日時"></label>
-                    <label><input id="EEWE_is_final" type="checkbox">最終報</label>
-                    <label><input id="EEWE_is_cancel" type="checkbox">キャンセル報</label>
-                    <label><input id="EEWE_is_training" type="checkbox">訓練報</label>
+                    <div class="h_grid">
+                        <label><input id="EEWE_is_final" type="checkbox">最終報</label>
+                        <label><input id="EEWE_is_cancel" type="checkbox">キャンセル報</label>
+                        <label><input id="EEWE_is_training" type="checkbox">訓練報</label>
+                    </div>
+
+                    <h5>震源要素</h5>
                     <label>マグニチュード <input id="EEWE_magnitude" type="number" min="0" value="3.5" max="10" step="0.1" placeholder="予想マグニチュード"></label>
-                    <label>最大震度
-                        <select id="EEWE_maxInt">
-                            <option value="?" selected>自動計算</option>
-                            <option value="0">震度0</option>
-                            <option value="1">震度1</option>
-                            <option value="2">震度2</option>
-                            <option value="3">震度3</option>
-                            <option value="4">震度4</option>
-                            <option value="5-">震度5弱</option>
-                            <option value="5+">震度5強</option>
-                            <option value="6-">震度6弱</option>
-                            <option value="6+">震度6強</option>
-                            <option value="7">震度7</option>
-                        </select>
-                    </label>
-                    <label><input id="EEWE_isPlum" type="checkbox">仮定震源要素</label>
                     <label>発生日時 <input id="EEWE_origin_time" type="datetime-local" min="1970-01-01T00:00:00" step="1" placeholder="地震の発生日時"></label>
                     <div class="smalltext">発生日時が未来／数分以上前の場合、情報は表示されません。</div>
                     <label>震央地域名
@@ -1623,11 +1619,33 @@
                             <option>うるま市・金武町境界部地先の埋立地</option>
                         </select>
                     </label>
-                    <label>緯度 <input id="EEWE_latitude" type="number" min="-90" max="90" step="0.1" value="35.7" placeholder="震源の緯度（10進）"></label>
-                    <label>経度 <input id="EEWE_longitude" type="number" min="-180" max="180" step="0.1" value="139.8" placeholder="震源の緯度（10進）"></label>
-
-
+                    <div class="h_grid">
+                        <label>緯度 <input id="EEWE_latitude" type="number" min="-90" max="90" step="0.1" value="35.7" placeholder="震源の緯度（10進）"></label>
+                        <label>経度 <input id="EEWE_longitude" type="number" min="-180" max="180" step="0.1" value="139.8" placeholder="震源の緯度（10進）"></label>
+                    </div>
                     <label>深さ(km) <input id="EEWE_depth" type="number" min="0" max="6500" step="1" value="10" placeholder="震源の深さ（km）"></label>
+                    <label><input id="EEWE_isPlum" type="checkbox">仮定震源要素</label>
+
+
+
+                    <h5>予想震度</h5>
+                    <label>予想最大震度
+                        <select id="EEWE_maxInt">
+                            <option value="?" selected>自動計算</option>
+                            <option value="0">震度0</option>
+                            <option value="1">震度1</option>
+                            <option value="2">震度2</option>
+                            <option value="3">震度3</option>
+                            <option value="4">震度4</option>
+                            <option value="5-">震度5弱</option>
+                            <option value="5+">震度5強</option>
+                            <option value="6-">震度6弱</option>
+                            <option value="6+">震度6強</option>
+                            <option value="7">震度7</option>
+                        </select>
+                    </label>
+
+
                     <button id="Start_simulation">シミュレーション</button>
                     <div class="smalltext">実際の地震の被害推定には使用しないでください。緊急地震速報 発令時は、シミュレーションできません。</div>
                 </section>
@@ -1653,7 +1671,20 @@
                 <section>
                     <label><input type="checkbox" id="TREM-RTS_GetData">データを取得</label>
                     <label> 情報取得間隔（秒）<input id="TREM-RTS_Interval" type="number" min="1" max="30" value="1" step="1" placeholder="情報を取得する間隔（秒）"></label>
-                    <span class="smalltext">台湾を中心に運営されるコミュニティ観測網によるリアルタイム震度を取得します。政府機関等運営の物よりも精度は劣ります。</span>
+                    <span class="smalltext">台湾を中心に運営されるコミュニティ観測網によるリアルタイム震度を取得します。政府機関等運営の物よりも精度は劣ります。本ソースから得られるデータは台湾の震度指標によりますが、おおむね日本のものと一致するため、同様に表示しています。</span>
+                </section>
+            </div>
+            <div id="tab1_content18" class="tabcontent" role="tabpanel" aria-labelledby="tab1_menu18">
+                <h3><span>情報種別ごとの設定</span>潮位観測情報</h3>
+                <h4>全般</h4>
+                <section>
+                    <label>潮位集計方法
+                        <select id="tide_processing">
+                            <option value="median" selected>4回中央値</option>
+                            <option value="latest">最新値</option>
+                        </select>
+                    </label>
+                    <span class="smalltext">全般>現在地に設定した場所から近い順に10か所の潮位を取得します。取得した潮位について、最新の値を表示するか、4サンプル(1分間相当)の中央値を表示するかを選択できます。</span>
                 </section>
             </div>
 
