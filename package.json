@@ -24,7 +24,9 @@
         "en-US"
       ],
       "files": [
-        "src/**/*",
+        "!package-lock.json",
+        "!build/**",
+        "!node_modules/maplibre-gl/{src,test,docs}/**",
         "!**/*.{map,ts,md}",
         "!node_modules/*/{CHANGELOG.md,README.md,*.map,*.ts}"
       ]
