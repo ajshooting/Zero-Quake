@@ -436,7 +436,10 @@ app.whenReady().then(() => {
 
   electron.protocol.handle('local-range-request', (request) => {
     try {
-      var filePath = decodeURI(request.url.slice('local-range-request://'.length))
+      var filePath = decodeURI(request.url.slice('local-range-request://'.length));
+      if (!path.isAbsolute(filePath)) {
+        filePath = path.join(app.getAppPath(), filePath);
+      }
 
       var rangeHeader = request.headers.get("Range");
       var stat = fs.statSync(filePath);
