@@ -479,16 +479,15 @@ app.whenReady().then(() => {
 
   if (config.system.WindowAutoOpen) {
     CreateMainWindow();
+  }
+
+  if (process.platform === 'darwin') {
+    app.on("activate", CreateMainWindow);
+  } else if (config.system.WindowAutoOpen) {
     app.on("activate", () => {
       // メインウィンドウが消えている場合は再度メインウィンドウを作成する
       if (BrowserWindow.getAllWindows().length === 0) {
         CreateMainWindow();
-
-        // eslint-disable-next-line no-undef
-      } else if (MainWindow && process.platform === 'darwin') {
-        if (MainWindow.isMinimized()) MainWindow.restore(); // 最小化を戻す
-        if (!MainWindow.isVisible()) MainWindow.show();     // 非表示を戻す
-        MainWindow.focus();                                 // フォーカスを当てる
       }
     });
   }
@@ -628,13 +627,19 @@ function errorResolve(response) {
   }
 }
 
-ipcMain.on("open-date-settings", () => {
+function openDateSettings() {
   if (process.platform === 'darwin') {
-    shell.openExternal('x-apple.systempreferences:com.apple.preference.datetime');
+    shell.openExternal('x-apple.systempreferences:com.apple.preference.datetime').catch(() => {
+      shell.openPath('/System/Applications/System Settings.app').then((message) => {
+        if (message) shell.openPath('/System/Applications/System Preferences.app');
+      });
+    });
   } else {
     shell.openExternal('ms-settings:dateandtime');
   }
-});
+}
+
+ipcMain.on("open-date-settings", openDateSettings);
 
 //アプリのロード完了イベント
 electron.app.on("ready", () => {
@@ -3151,7 +3156,7 @@ function EEW_Alert(data, update) {
 
       var notice_setting = first ? config.notice.window.EEW : config.notice.window.EEW_Update;
       if (notice_setting == "push" && (!MainWindow || MainWindow.isMinimized() || !MainWindow.isFocused() || !MainWindow.isVisible())) {
-        var EEWNotification = new Notification({
+        ShowNotification({
           title: (data.is_training ? "【訓練報】 " : "") + "緊急地震速報 " + data.alertflg + " #" + data.serial,
           body:
             data.region_name +
@@ -3160,9 +3165,7 @@ function EEW_Alert(data, update) {
             " ／ 深さ：" + (data.depth ? data.depth + "km" : "不明") +
             (data.userIntensity ? "\n現在地の予想震度：" + NormalizeShindo(data.userIntensity, 1) : ""),
           icon: path.join(__dirname, "img", process.platform === "darwin" ? "icon.icns" : "icon.ico"),
-        });
-        EEWNotification.show();
-        EEWNotification.on("click", CreateMainWindow);
+        }, CreateMainWindow);
       } else if (notice_setting == "openWindow") CreateMainWindow();
     }
 
@@ -3236,13 +3239,11 @@ function EarlyEst_Alert(data, first, update) {
         update: false,
       });
       if (!MainWindow) {
-        var EEWNotification = new Notification({
+        ShowNotification({
           title: "Early-Est 地震情報" + " #" + data.serial,
           body: data.region_name + "\n M" + data.magnitude + "  深さ：" + data.depth,
           icon: path.join(__dirname, "img", process.platform === "darwin" ? "icon.icns" : "icon.ico"),
-        });
-        EEWNotification.show();
-        EEWNotification.on("click", function () {
+        }, function () {
           CreateMainWindow();
         });
       }
@@ -4778,14 +4779,24 @@ function PlayAudio(name) {
 
 //メインウィンドウ内通知
 var notifyData;
+function ShowNotification(options, clickHandler) {
+  try {
+    if (!Notification.isSupported()) return false;
+    var Push = new Notification(options);
+    if (clickHandler) Push.on("click", clickHandler);
+    Push.show();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function SystemNotification(message) {
-  var Push = new Notification({
+  ShowNotification({
     title: "Zero Quake システム通知",
     body: message,
     icon: path.join(__dirname, "img", process.platform === "darwin" ? "icon.icns" : "icon.ico"),
   });
-
-  Push.show();
 }
 
 //JSONパース（拡張）
