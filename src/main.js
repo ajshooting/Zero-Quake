@@ -1094,6 +1094,7 @@ function Create_SettingWindow(update) {
         config: config,
         defaultConfigVal: defaultConfigVal,
         softVersion: soft_version,
+        platform: process.platform,
         openAtLogin: app.getLoginItemSettings().openAtLogin
           || fs.existsSync(`${homePath}/AppData/Roaming/Microsoft/Windows/Start Menu/Programs/Startup/ZeroQuake.lnk`),
         updatePanelMode: update,

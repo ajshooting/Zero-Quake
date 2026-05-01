@@ -71,6 +71,18 @@ window.electronAPI.messageSend((event, request) => {
     config = request.config;
     defaultConfigVal = request.defaultConfigVal;
 
+    // Macの場合、Windows専用の棒読みちゃん設定を隠す
+    if (request.platform === "darwin") {
+      const boyomiSection = document.getElementById("BoyomiSettingSection");
+      if (boyomiSection) {
+        boyomiSection.style.display = "none";
+        // もし設定が棒読みちゃんになっていたら、強制的に標準音声に戻す（Macでは動作しないため）
+        if (config.notice.voice_parameter.engine === "Boyomichan") {
+          config.notice.voice_parameter.engine = "Default";
+        }
+      }
+    }
+
     configDataDraw();
     mapInit();
     SetShindoColor();
