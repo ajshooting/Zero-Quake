@@ -207,6 +207,7 @@ var kmoniTimeout;
 var msil_lastTime = 0;
 var kmoniPointsDataTmp, SnetPointsDataTmp, TremRtsData_Marged;
 let tray;
+let isQuitting = false;
 var thresholds;
 
 if (app.isPackaged) {
@@ -670,7 +671,11 @@ electron.app.on("ready", () => {
       {
         label: "終了",
         click: () => {
-          app.exit(0);
+          if (process.platform === 'darwin') {
+            app.quit();
+          } else {
+            app.exit(0);
+          }
         },
       },
     ])
@@ -811,11 +816,9 @@ ipcMain.on("message", (_event, response) => {
   }
 });
 
-// macでは終了時に終了されないので仕方なくこの実装
 app.on('before-quit', () => {
-  // eslint-disable-next-line no-undef
   if (process.platform === 'darwin') {
-    app.quit()
+    isQuitting = true;
   }
 });
 
@@ -1006,7 +1009,7 @@ function CreateMainWindow() {
       });
 
       MainWindow.on("close", (event) => {
-        if (!MainWindow.isDestroyed()) {
+        if (!(process.platform === 'darwin' && isQuitting) && !MainWindow.isDestroyed()) {
           event.preventDefault();
           MainWindow.hide();
         }
@@ -1028,7 +1031,7 @@ function Create_WorkerWindow() {
   });
   WorkerWindow.on("close", () => {
     WorkerWindow = null;
-    setTimeout(Create_WorkerWindow, 2000)
+    if (!(process.platform === 'darwin' && isQuitting)) setTimeout(Create_WorkerWindow, 2000)
   });
   WorkerWindow.webContents.on("did-finish-load", () => {
     WorkerWindow.webContents.send("message2", {
@@ -1117,6 +1120,7 @@ function Create_SettingWindow(update) {
         cancelId: 1,
       });
       if (choice == 0) event.preventDefault();
+      else if (process.platform === 'darwin') isQuitting = false;
     });
   } catch (err) {
     throw new Error("設定ウィンドウの作成でエラーが発生しました。", { cause: err });
