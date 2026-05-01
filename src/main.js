@@ -211,7 +211,9 @@ var thresholds;
 
 if (app.isPackaged) {
   //メニューバー非表示
-  Menu.setApplicationMenu(false);
+  if (process.platform !== 'darwin') {
+    Menu.setApplicationMenu(false);
+  }
   //多重起動防止
   const gotTheLock = app.requestSingleInstanceLock();
   if (!gotTheLock) {
@@ -387,6 +389,70 @@ electron.protocol.registerSchemesAsPrivileged([
 ]);
 //準備完了イベント
 app.whenReady().then(() => {
+  // macOS用のメニューバー
+  if (process.platform === 'darwin') {
+    const template = [
+      {
+        label: app.name,
+        submenu: [
+          { role: 'about' },
+          { type: 'separator' },
+          { role: 'services' },
+          { type: 'separator' },
+          { role: 'hide' },
+          { role: 'hideothers' },
+          { role: 'unhide' },
+          { type: 'separator' },
+          { role: 'quit' }
+        ]
+      },
+      {
+        label: 'Edit',
+        submenu: [
+          { role: 'undo' },
+          { role: 'redo' },
+          { type: 'separator' },
+          { role: 'cut' },
+          { role: 'copy' },
+          { role: 'paste' },
+          { role: 'pasteAndMatchStyle' },
+          { role: 'delete' },
+          { role: 'selectAll' },
+          { type: 'separator' },
+          {
+            label: 'Speech',
+            submenu: [
+              { role: 'startSpeaking' },
+              { role: 'stopSpeaking' }
+            ]
+          }
+        ]
+      },
+      {
+        label: 'Window',
+        submenu: [
+          { role: 'minimize' },
+          { role: 'zoom' },
+          { role: 'close' }
+        ]
+      },
+      {
+        role: 'help',
+        submenu: [
+          {
+            label: 'Learn More',
+            click: async () => {
+              await shell.openExternal('https://0quake.github.io/ZeroQuake_Website/')
+            }
+          }
+        ]
+      }
+    ];
+
+    const menu = Menu.buildFromTemplate(template);
+    Menu.setApplicationMenu(menu);
+  }
+
   //ウィンドウ作成
   Create_WorkerWindow();
   //定期実行
@@ -819,72 +885,7 @@ function CreateMainWindow() {
         messageToMainWindow({ action: "Replay", data: Replay });
       }
 
-      // macOS用のメニューバー
-      if (process.platform === 'darwin') {
-        const template = [
-          {
-            label: app.name,
-            submenu: [
-              { role: 'about' },
-              { type: 'separator' },
-              { role: 'services' },
-              { type: 'separator' },
-              { role: 'hide' },
-              { role: 'hideothers' },
-              { role: 'unhide' },
-              { type: 'separator' },
-              { role: 'quit' }
-            ]
-          },
-          {
-            label: 'Edit',
-            submenu: [
-              { role: 'undo' },
-              { role: 'redo' },
-              { type: 'separator' },
-              { role: 'cut' },
-              { role: 'copy' },
-              { role: 'paste' },
-              { role: 'pasteAndMatchStyle' },
-              { role: 'delete' },
-              { role: 'selectAll' },
-              { type: 'separator' },
-              {
-                label: 'Speech',
-                submenu: [
-                  { role: 'startSpeaking' },
-                  { role: 'stopSpeaking' }
-                ]
-              }
-            ]
-          },
-          // { role: 'fileMenu' },  // 必要に応じて追加
-          // { role: 'viewMenu' },  // 必要に応じて追加
-          // { role: 'windowMenu' }, // 必要に応じて追加
-          {
-            label: 'Window',
-            submenu: [
-              { role: 'minimize' },
-              { role: 'zoom' },
-              { role: 'close' }
-            ]
-          },
-          {
-            role: 'help',
-            submenu: [
-              {
-                label: 'Learn More',
-                click: async () => {
-                  await shell.openExternal('https://0quake.github.io/ZeroQuake_Website/')
-                }
-              }
-            ]
-          }
-        ];
 
-        const menu = Menu.buildFromTemplate(template)
-        Menu.setApplicationMenu(menu)
-      }
 
       MainWindow.webContents.on("did-finish-load", () => {
         MainWindow.webContents.setZoomFactor(config.system.zoom);
