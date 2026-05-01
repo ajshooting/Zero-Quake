@@ -726,6 +726,7 @@ ipcMain.on("message", (_event, response) => {
     case "ChangeConfig":
       config = response.data;
       store.set("config", config);
+      applyMacAlwaysOnTopToAllWindows();
 
       if (SettingWindow) {
         SettingWindow.webContents.send("message2", {
@@ -886,6 +887,7 @@ function CreateMainWindow() {
         backgroundColor: "#222225",
         alwaysOnTop: config.system.alwaysOnTop,
       });
+      applyMacAlwaysOnTop(MainWindow);
       if (store.get("Maximized", null)) MainWindow.maximize()
       else MainWindow.unmaximize()
 
@@ -1077,6 +1079,7 @@ function Create_SettingWindow(update) {
       backgroundColor: "#222225",
       alwaysOnTop: config.system.alwaysOnTop,
     });
+    applyMacAlwaysOnTop(SettingWindow);
 
     SettingWindow.webContents.on("did-finish-load", () => {
       SettingWindow.webContents.setZoomFactor(config.system.zoom);
@@ -1151,6 +1154,7 @@ function Create_TsunamiWindow() {
       backgroundColor: "#222225",
       alwaysOnTop: config.system.alwaysOnTop,
     });
+    applyMacAlwaysOnTop(TsunamiWindow);
 
     TsunamiWindow.webContents.on("did-finish-load", () => {
       TsunamiWindow.webContents.setZoomFactor(config.system.zoom);
@@ -1200,6 +1204,7 @@ function Create_NankaiWindow(type) {
         backgroundColor: "#222225",
         alwaysOnTop: config.system.alwaysOnTop,
       });
+      applyMacAlwaysOnTop(NankaiWindow.window);
 
       NankaiWindow.window.webContents.on("did-finish-load", () => {
         NankaiWindow.window.webContents.setZoomFactor(config.system.zoom);
@@ -1250,6 +1255,7 @@ function Create_WepaWindow(fname) {
       backgroundColor: "#222225",
       alwaysOnTop: config.system.alwaysOnTop,
     });
+    applyMacAlwaysOnTop(WepaWindow[fname]);
 
     WepaWindow[fname].webContents.on("did-finish-load", () => {
       WepaWindow[fname].webContents.setZoomFactor(config.system.zoom);
@@ -1297,6 +1303,7 @@ function Create_HokkaidoSanrikuWindow() {
       backgroundColor: "#222225",
       alwaysOnTop: config.system.alwaysOnTop,
     });
+    applyMacAlwaysOnTop(HokkaidoSanrikuWindow);
 
     HokkaidoSanrikuWindow.webContents.on("did-finish-load", () => {
       HokkaidoSanrikuWindow.webContents.setZoomFactor(config.system.zoom);
@@ -1344,6 +1351,7 @@ function Create_KatsudoJokyoWindow() {
       backgroundColor: "#222225",
       alwaysOnTop: config.system.alwaysOnTop,
     });
+    applyMacAlwaysOnTop(KatsudoJokyoWindow);
 
     KatsudoJokyoWindow.webContents.on("did-finish-load", () => {
       KatsudoJokyoWindow.webContents.setZoomFactor(config.system.zoom);
@@ -1372,6 +1380,32 @@ function Create_KatsudoJokyoWindow() {
 
 function messageToMainWindow(message) {
   if (MainWindow) MainWindow.webContents.send("message2", message);
+}
+
+function applyMacAlwaysOnTop(win) {
+  if (process.platform !== "darwin" || !win || win.isDestroyed()) return;
+
+  const alwaysOnTop = Boolean(config.system.alwaysOnTop);
+  win.setAlwaysOnTop(alwaysOnTop, alwaysOnTop ? "screen-saver" : "normal");
+  win.setVisibleOnAllWorkspaces(alwaysOnTop, {
+    visibleOnFullScreen: alwaysOnTop,
+  });
+  if (alwaysOnTop && win.isVisible()) win.moveTop();
+}
+
+function applyMacAlwaysOnTopToAllWindows() {
+  applyMacAlwaysOnTop(MainWindow);
+  applyMacAlwaysOnTop(SettingWindow);
+  applyMacAlwaysOnTop(TsunamiWindow);
+  applyMacAlwaysOnTop(NankaiWindow.window);
+  Object.keys(WepaWindow).forEach(function (key) {
+    applyMacAlwaysOnTop(WepaWindow[key]);
+  });
+  applyMacAlwaysOnTop(HokkaidoSanrikuWindow);
+  applyMacAlwaysOnTop(KatsudoJokyoWindow);
+  Object.keys(EQI_Window).forEach(function (key) {
+    if (EQI_Window[key]) applyMacAlwaysOnTop(EQI_Window[key].window);
+  });
 }
 
 //地震情報ウィンドウ表示処理
@@ -1407,6 +1441,7 @@ function EQInfo_createWindow(response, IS_WebURL) {
       backgroundColor: IS_WebURL ? null : "#222225",
       alwaysOnTop: config.system.alwaysOnTop,
     });
+    applyMacAlwaysOnTop(EQInfoWindow);
 
     if (!IS_WebURL) {
       var EEWDataItem = EEW_Data.find(function (elm) {
