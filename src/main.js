@@ -46,7 +46,7 @@ import workerThreads from "worker_threads";
 import { readFile } from "fs/promises";
 import fs from "fs";
 import url from "url";
-import { exec } from "child_process";
+import { exec, execFile } from "child_process";
 var __dirname = path.dirname(fileURLToPath(import.meta.url));
 var FERegion = JSON.parse(
   await readFile(path.join(__dirname, "./Resource/feRegion.json"))
@@ -209,6 +209,9 @@ var kmoniPointsDataTmp, SnetPointsDataTmp, TremRtsData_Marged;
 let tray;
 let isQuitting = false;
 var thresholds;
+var nativeSpeechProcess = null;
+var nativeSpeechPlaybackProcess = null;
+var nativeSpeechToken = 0;
 
 if (app.isPackaged) {
   //メニューバー非表示
@@ -770,6 +773,9 @@ ipcMain.on("message", (_event, response) => {
     case "checkForUpdate":
       checkUpdate(true);
       break;
+    case "NativeSpeech":
+      speakNative(response.data);
+      break;
     case "tsunamiReqest":
       if (Tsunami_data_Marged) {
         messageToMainWindow({
@@ -824,6 +830,7 @@ ipcMain.on("message", (_event, response) => {
 
 app.on('before-quit', () => {
   if (process.platform === 'darwin') {
+    stopNativeSpeech();
     isQuitting = true;
   }
 });
@@ -1044,6 +1051,7 @@ function Create_WorkerWindow() {
     WorkerWindow.webContents.send("message2", {
       action: "setting",
       data: config,
+      platform: process.platform,
     });
   });
   WorkerWindow.loadFile("src/WorkerWindow.html");
@@ -4630,6 +4638,100 @@ function ConvertTsunamiInfo(data) {
 }
 
 //🔴支援関数🔴
+
+function normalizeNumber(value, min, max, fallback) {
+  var num = Number(value);
+  if (!Number.isFinite(num)) num = fallback;
+  return Math.min(max, Math.max(min, num));
+}
+
+function stopNativeSpeech() {
+  nativeSpeechToken++;
+  if (nativeSpeechProcess) {
+    nativeSpeechProcess.kill();
+    nativeSpeechProcess = null;
+  }
+  if (nativeSpeechPlaybackProcess) {
+    nativeSpeechPlaybackProcess.kill();
+    nativeSpeechPlaybackProcess = null;
+  }
+}
+
+function speakNative(data) {
+  if (process.platform !== "darwin") return;
+
+  if (typeof data == "string") data = { text: data };
+  if (!data || !data.text) return;
+
+  var text = String(data.text);
+  var voice = data.voice ? String(data.voice) : "";
+  var voiceCandidates = [];
+  if (voice) voiceCandidates.push(voice);
+  ["Kyoko", "Otoya"].forEach(function (name) {
+    if (!voiceCandidates.includes(name)) voiceCandidates.push(name);
+  });
+  voiceCandidates.push("");
+  var rate = Math.round(200 * normalizeNumber(data.rate, 0.1, 10, 1));
+  rate = Math.round(normalizeNumber(rate, 80, 500, 200));
+  var volume = normalizeNumber(data.volume, 0, 1, 1);
+  if (volume <= 0) {
+    stopNativeSpeech();
+    return;
+  }
+
+  stopNativeSpeech();
+  var speechToken = nativeSpeechToken;
+
+  var tmpFile = path.join(
+    app.getPath("temp"),
+    `zeroquake-tts-${process.pid}-${Date.now()}.aiff`
+  );
+
+  function cleanup() {
+    fs.unlink(tmpFile, () => {
+      return;
+    });
+  }
+
+  function playGeneratedSpeech() {
+    var player = execFile("/usr/bin/afplay", ["-v", String(volume), tmpFile], () => {
+      if (speechToken !== nativeSpeechToken) {
+        cleanup();
+        return;
+      }
+      if (nativeSpeechPlaybackProcess === player)
+        nativeSpeechPlaybackProcess = null;
+      cleanup();
+    });
+    nativeSpeechPlaybackProcess = player;
+    player.on("error", cleanup);
+  }
+
+  function runSay(voiceIndex) {
+    var currentVoice = voiceCandidates[voiceIndex];
+    var args = [];
+    if (currentVoice) args.push("-v", currentVoice);
+    args.push("-r", String(rate), "-o", tmpFile, text);
+
+    var speaker = execFile("/usr/bin/say", args, (error) => {
+      if (speechToken !== nativeSpeechToken) {
+        cleanup();
+        return;
+      }
+      if (nativeSpeechProcess === speaker) nativeSpeechProcess = null;
+      if (error) {
+        cleanup();
+        if (voiceIndex < voiceCandidates.length - 1) runSay(voiceIndex + 1);
+        return;
+      }
+      playGeneratedSpeech();
+    });
+    nativeSpeechProcess = speaker;
+    speaker.on("error", cleanup);
+  }
+
+  runSay(0);
+}
 
 //音声合成
 function speak(str) {
