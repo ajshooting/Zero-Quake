@@ -212,6 +212,24 @@ var thresholds;
 var nativeSpeechProcess = null;
 var nativeSpeechPlaybackProcess = null;
 var nativeSpeechToken = 0;
+var httpCacheClearThreshold = 100 * 1024 * 1024;
+
+function noStoreRequest(options) {
+  if (typeof options == "string") {
+    return net.request({ url: options, cache: "no-store" });
+  }
+  return net.request(Object.assign({}, options, { cache: options.cache || "no-store" }));
+}
+
+function clearLargeHttpCache() {
+  electron.session.defaultSession.getCacheSize()
+    .then(function (size) {
+      if (size > httpCacheClearThreshold) return electron.session.defaultSession.clearCache();
+    })
+    .catch(function () {
+      return;
+    });
+}
 
 if (app.isPackaged) {
   //メニューバー非表示
@@ -250,7 +268,7 @@ function checkUpdate(userAction) {
           });
         }
       };
-      let request = net.request(
+      let request = noStoreRequest(
         "https://api.github.com/repos/0quake/Zero-Quake/releases?_=" + Number(new Date())
       );
       request.on("response", (res) => {
@@ -345,7 +363,7 @@ function ScheduledExecution() {
   //axisのアクセストークン確認
   if (config.Source.axis.GetData) {
     if (net.online) {
-      var request = net.request(
+      var request = noStoreRequest(
         "https://axis.prioris.jp/api/token/refresh/?token=" +
         config.Source.axis.AccessToken
       );
@@ -393,6 +411,8 @@ electron.protocol.registerSchemesAsPrivileged([
 ]);
 //準備完了イベント
 app.whenReady().then(() => {
+  clearLargeHttpCache();
+
   // macOS用のメニューバー
   if (process.platform === 'darwin') {
     const template = [
@@ -1528,7 +1548,7 @@ function start() {
 
 function Req_JMA_gaikyo() {
   if (net.online) {
-    var request = net.request("https://www.data.jma.go.jp/svd/eqev/data/gaikyo/?_=" + Number(new Date()));
+    var request = noStoreRequest("https://www.data.jma.go.jp/svd/eqev/data/gaikyo/?_=" + Number(new Date()));
     request.on("response", (res) => {
       var text = "";
       res.on("data", (chunk) => {
@@ -1607,7 +1627,7 @@ function Req_JMA_gaikyo() {
 
 function Req_JMA_wepa() {
   if (net.online) {
-    var request = net.request("https://www.jma.go.jp/bosai/pacifictsunami/data/list.json?_=" + Number(new Date()));
+    var request = noStoreRequest("https://www.jma.go.jp/bosai/pacifictsunami/data/list.json?_=" + Number(new Date()));
     request.on("response", (res) => {
       var dataTmp = "";
       res.on("data", (chunk) => {
@@ -1633,7 +1653,7 @@ var TremRts_sta;
 var Trem_server = true;
 function Req_TremRts_sta() {
   if (net.online) {
-    var request = net.request("https://api-" + (Trem_server ? 1 : 2) + ".exptech.dev/api/v1/trem/station?_=" + Number(new Date()));
+    var request = noStoreRequest("https://api-" + (Trem_server ? 1 : 2) + ".exptech.dev/api/v1/trem/station?_=" + Number(new Date()));
     request.on("response", (res) => {
       var dataTmp = "";
       res.on("data", (chunk) => {
@@ -1665,7 +1685,7 @@ function Req_TremRts() {
       if (Replay !== 0) var url = "https://api-" + (TremRTS_server ? 1 : 2) + ".exptech.dev/api/v1/trem/rts/" + Number(new Date() - Replay);
       else var url = "https://lb-" + (TremRTS_server ? 1 : 2) + ".exptech.dev/api/v1/trem/rts?_=" + Number(new Date());
 
-      var request = net.request(url);
+      var request = noStoreRequest(url);
       request.on("response", (res) => {
         var dataTmp = "";
         res.on("data", (chunk) => {
@@ -1732,7 +1752,7 @@ function sort_by_dist_TIDE(data) {
 var JMATide_sta = [];
 function Req_JMATide_sta() {
   if (net.online) {
-    var request = net.request("https://www.jma.go.jp/bosai/tidelevel/const/tide_area.json?_=" + Number(new Date()));
+    var request = noStoreRequest("https://www.jma.go.jp/bosai/tidelevel/const/tide_area.json?_=" + Number(new Date()));
     request.on("response", (res) => {
       var dataTmp = "";
       res.on("data", (chunk) => {
@@ -1784,7 +1804,7 @@ function Req_JMATide() {
     JMATide_sta.forEach(function (st) {
 
       if (!JMATide_astro[st.code]) {
-        var request = net.request(`https://www.jma.go.jp/bosai/tidelevel/const/tide_astro/tide_astro_${NormalizeDate("YYYY", new Date() - Replay)}_${st.code}.json`);
+        var request = noStoreRequest(`https://www.jma.go.jp/bosai/tidelevel/const/tide_astro/tide_astro_${NormalizeDate("YYYY", new Date() - Replay)}_${st.code}.json`);
         request.on("response", (res) => {
           var dataTmp = "";
           res.on("data", (chunk) => {
@@ -1815,7 +1835,7 @@ function Req_JMATide() {
       }
 
 
-      var request = net.request(`https://www.jma.go.jp/bosai/tidelevel/data/tide/tide_obs_${NormalizeDate(2, new Date() - Replay)}_${st.code}.json`);
+      var request = noStoreRequest(`https://www.jma.go.jp/bosai/tidelevel/data/tide/tide_obs_${NormalizeDate(2, new Date() - Replay)}_${st.code}.json`);
       request.on("response", (res) => {
         var dataTmp = "";
         res.on("data", (chunk) => {
@@ -1881,7 +1901,7 @@ lerp(h, tide[h], h + 1, tide[h + 1], h + m / 60)*/
 function Req_EarlyEst() {
   if (config.Source.EarlyEst.GetData) {
     if (net.online) {
-      var request = net.request("http://early-est.rm.ingv.it/monitor.xml");
+      var request = noStoreRequest("http://early-est.rm.ingv.it/monitor.xml");
       request.on("response", (res) => {
         if (300 <= res._responseHead.statusCode || res._responseHead.statusCode < 200) {
           UpdateStatus(new Date() - Replay, "Early-est", "Error");
@@ -2038,7 +2058,7 @@ function Req_kmoni() {
         "http://www.kmoni.bosai.go.jp/data/map_img/RealTimeImg/jma_s/" + NormalizeDate(2, ReqTime) + "/" + NormalizeDate(1, ReqTime) + ".jma_s.gif",
       ][kmoniI_url];
 
-      var request = net.request(urlTmp);
+      var request = noStoreRequest(urlTmp);
       request.on("response", (res) => {
         var dataTmp = [];
         res.on("data", (chunk) => {
@@ -2084,7 +2104,7 @@ function Req_kmoni() {
 function Req_SNet() {
   if (config.Source.msil.GetData) {
     if (net.online) {
-      var request = net.request("https://www.msil.go.jp/data/tiles/smoni/targetTimes.json?" + Number(new Date()));
+      var request = noStoreRequest("https://www.msil.go.jp/data/tiles/smoni/targetTimes.json?" + Number(new Date()));
       request.on("response", (res) => {
         var dataTmp = "";
         res.on("data", (chunk) => {
@@ -2103,7 +2123,7 @@ function Req_SNet() {
             if (msil_lastTime < basetime) {
 
               function Req_SNet_core(y, unique_id) {
-                var request = net.request(`https://www.msil.go.jp/data/tiles/smoni/tileimage/${basetime}/${basetime}/5/28/${y}.png`);
+                var request = noStoreRequest(`https://www.msil.go.jp/data/tiles/smoni/tileimage/${basetime}/${basetime}/5/28/${y}.png`);
                 request.on("response", (res) => {
                   var dataTmp = [];
                   res.on("data", (chunk) => {
@@ -2551,7 +2571,7 @@ async function SetKmoniOffset(func) {
         await new Promise((resolve) => {
           var dataTmp = "";
           var reqTime = new Date();
-          var request = net.request("http://www.kmoni.bosai.go.jp/webservice/server/pros/latest.json?_=" + Number(new Date()));
+          var request = noStoreRequest("http://www.kmoni.bosai.go.jp/webservice/server/pros/latest.json?_=" + Number(new Date()));
           request.on("response", (res) => {
             res.on("data", (chunk) => {
               dataTmp += chunk;
@@ -3329,7 +3349,7 @@ function UpdateEQInfo(roop) {
 //気象庁XMLリスト取得→Req_JMAXML
 function Req_JMAXMLList(LongPeriodFeed, count) {
   if (net.online) {
-    var request = net.request(LongPeriodFeed ? "https://www.data.jma.go.jp/developer/xml/feed/eqvol_l.xml" : "https://www.data.jma.go.jp/developer/xml/feed/eqvol.xml");
+    var request = noStoreRequest(LongPeriodFeed ? "https://www.data.jma.go.jp/developer/xml/feed/eqvol_l.xml" : "https://www.data.jma.go.jp/developer/xml/feed/eqvol.xml");
     request.on("response", (res) => {
       var dataTmp = "";
       res.on("data", (chunk) => {
@@ -3398,7 +3418,7 @@ function Req_JMAXMLList(LongPeriodFeed, count) {
 }
 
 function Req_JMAJSONList() {
-  var request = net.request("https://www.jma.go.jp/bosai/quake/data/list.json");
+  var request = noStoreRequest("https://www.jma.go.jp/bosai/quake/data/list.json");
   request.on("response", (res) => {
     var dataTmp = "";
     res.on("data", (chunk) => {
@@ -3421,7 +3441,7 @@ function Req_JMAJSONList() {
 }
 
 function Req_Hokkaidosanriku_JSON(url) {
-  var request = net.request(url);
+  var request = noStoreRequest(url);
   request.on("response", (res) => {
     var dataTmp = "";
     res.on("data", (chunk) => {
@@ -3482,7 +3502,7 @@ function Req_JMAXML(url, count,) {
   if (!url || jmaXML_Fetched.includes(url)) return;
 
   if (net.online) {
-    var request = net.request(url);
+    var request = noStoreRequest(url);
     request.on("response", (res) => {
       var dataTmp = "";
       res.on("data", (chunk) => {
@@ -4084,7 +4104,7 @@ var KatsudoJokyoInfoAll = [];
 var usgsLastGenerated = 0;
 function Req_USGS() {
   if (net.online) {
-    var request = net.request("https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&limit=" + config.Info.EQInfo.ItemCount);
+    var request = noStoreRequest("https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&limit=" + config.Info.EQInfo.ItemCount);
     request.on("response", (res) => {
       var dataTmp = "";
       res.on("data", (chunk) => {
@@ -4138,7 +4158,7 @@ function Req_USGS() {
 //narikakun地震情報API リスト取得→Req_Narikakun
 function Req_NarikakunList(url, num, first, count) {
   if (net.online) {
-    var request = net.request(url);
+    var request = noStoreRequest(url);
     request.on("response", (res) => {
       var dataTmp = "";
       res.on("data", (chunk) => {
@@ -4193,7 +4213,7 @@ function Req_Narikakun(url, count) {
   if (!url || nakn_Fetched.includes(url)) return;
 
   if (net.online) {
-    var request = net.request(url);
+    var request = noStoreRequest(url);
     request.on("response", (res) => {
       var dataTmp = "";
       res.on("data", (chunk) => {
