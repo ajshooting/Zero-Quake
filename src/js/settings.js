@@ -75,7 +75,7 @@ window.electronAPI.messageSend((event, request) => {
 
     // Macの場合、Windows専用の棒読みちゃん設定を隠す
     if (platform === "darwin") {
-      const boyomiSection = document.getElementById("BoyomiSettingSection");
+      const boyomiSection = document.getElementById("VoiceEngine_Boyomichan")?.closest("section");
       if (boyomiSection) {
         boyomiSection.style.display = "none";
         // もし設定が棒読みちゃんになっていたら、強制的に標準音声に戻す（Macでは動作しないため）
@@ -83,6 +83,9 @@ window.electronAPI.messageSend((event, request) => {
           config.notice.voice_parameter.engine = "Default";
         }
       }
+
+      const TTSPitchSection = document.getElementById("TTSPitchN")?.closest("label");
+      if (TTSPitchSection) TTSPitchSection.style.display = "none";
     }
 
     configDataDraw();
