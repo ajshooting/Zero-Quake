@@ -25,11 +25,16 @@ jobs:
   eslint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
       - name: eslint
         uses: reviewdog/action-eslint@v1
         with:
           github_token: ${{ secrets.github_token }}
           reporter: github-pr-review
           eslint_flags: "src/**/*.{ts,tsx,js}"
-          fail_on_error: true # 指摘が発生したらjobを失敗扱いにする
+          fail_level: error # 指摘が発生したらjobを失敗扱いにする

@@ -1,6 +1,4 @@
-// eslint-disable-next-line no-undef
 process.env.TZ = "Asia/Tokyo";
-// eslint-disable-next-line no-undef
 process.title = 'Zero Quake';
 
 //リプレイ
@@ -45,7 +43,6 @@ import * as turf from "@turf/turf";
 import workerThreads from "worker_threads";
 import { readFile } from "fs/promises";
 import fs from "fs";
-import url from "url";
 import { exec, execFile } from "child_process";
 var __dirname = path.dirname(fileURLToPath(import.meta.url));
 var FERegion = JSON.parse(
@@ -579,7 +576,6 @@ let options = {
 };
 var errorMsgBox = false;
 //エラーイベント
-// eslint-disable-next-line no-undef
 process.on("uncaughtException", function (err) {
   try {
     if (!errorMsgBox && app.isReady()) {
@@ -618,17 +614,21 @@ function causeTree(err) {
         i++;
         err = err.cause;
       }
-    } catch { }
+    } catch {
+      // cause chain may be unavailable
+    }
 
     try {
       //ユーザーのフォルダ構成を秘匿
       var homeDir = app.getAppPath();
       homeDir = homeDir.replaceAll("\\", "/");//バックスラッシュ対策
       ErrString = ErrString.replace(homeDir, '<0quake_root>');
-    } catch { }
+    } catch {
+      // app path redaction is best effort
+    }
 
     return ErrString;
-  } catch (e) {
+  } catch {
     return "エラーログツリーの作成に失敗";
   }
 }
@@ -669,7 +669,6 @@ electron.app.on("ready", () => {
   //タスクトレイアイコン
   tray = new electron.Tray(
     electron.nativeImage.createFromPath(
-      // eslint-disable-next-line no-undef
       path.join(__dirname, "img", `icon.${process.platform === "darwin" ? "icns" : "ico"}`)
     )
   );
@@ -856,7 +855,6 @@ app.on('before-quit', () => {
 });
 
 function setOpenAtLogin(openAtLogin) {
-  // eslint-disable-next-line no-undef
   if (process.platform != "win32") {
     app.setLoginItemSettings({ openAtLogin: openAtLogin });
   } else {
@@ -926,8 +924,6 @@ function CreateMainWindow() {
 
       MainWindow.webContents.on("did-finish-load", () => {
         MainWindow.webContents.setZoomFactor(config.system.zoom);
-
-        if (notifyData) messageToMainWindow(notifyData);
 
         if (Replay !== 0) {
           messageToMainWindow({ action: "Replay", data: Replay });
@@ -1781,7 +1777,7 @@ function Req_JMATide_sta() {
           stations = sort_by_dist_TIDE(stations);
           JMATide_sta = stations.slice(0, 10)
           //↑近い順10件
-        } catch (e) {
+        } catch {
           messageToMainWindow({ action: "Return_tide", data: [] });
         }
       });
@@ -1823,7 +1819,7 @@ function Req_JMATide() {
                 }
               }
 
-            } catch (e) {
+            } catch {
               messageToMainWindow({ action: "Return_tide", data: [] });
             }
           });
@@ -1882,7 +1878,7 @@ lerp(h, tide[h], h + 1, tide[h + 1], h + m / 60)*/
               JMATide_obs[st.code] = obsdata
               messageToMainWindow({ action: "Return_tide", data: sort_by_dist_TIDE(Object.values(JMATide_obs)) });
             }
-          } catch (e) {
+          } catch {
             messageToMainWindow({ action: "Return_tide", data: [] });
           }
         });
@@ -2077,7 +2073,6 @@ function Req_kmoni() {
               UpdateStatus(new Date() - Replay, "kmoniImg", "Error");
             } else {
               errorCountkI = 0;
-              // eslint-disable-next-line no-undef
               var bufTmp = Buffer.concat(dataTmp);
               if (WorkerWindow) {
                 WorkerWindow.webContents.send("message2", {
@@ -2132,7 +2127,6 @@ function Req_SNet() {
                   res.on("end", () => {
                     try {
                       if (WorkerWindow) {
-                        // eslint-disable-next-line no-undef
                         var bufTmp = Buffer.concat(dataTmp);
                         WorkerWindow.webContents.send("message2", {
                           action: "SnetImgUpdate",
@@ -2393,7 +2387,8 @@ function WolfxWS() {
     TryConnect_WolfxWS();
   });
 
-  WolfxWS_Client.on("connect", function (WolfxConnection) {
+  WolfxWS_Client.on("connect", function (connection) {
+    WolfxConnection = connection;
     WolfxConnection.on("error", function () {
       UpdateStatus(new Date() - Replay, "wolfx", "Error");
     });
@@ -4936,7 +4931,6 @@ function PlayAudio(name) {
 }
 
 //メインウィンドウ内通知
-var notifyData;
 function ShowNotification(options, clickHandler) {
   try {
     if (!Notification.isSupported()) return false;
@@ -5178,13 +5172,6 @@ function ConvertUTC(time) {
   } catch (err) {
     throw new Error("内部の情報処理でエラーが発生しました。(タイムゾーンの変換 - JST to UTC)", { cause: err });
   }
-}
-function depthFilter(depth) {
-  if (!isFinite(depth) || depth < 0) return 0;
-  else if (depth > 700) return 700;
-  else if (200 <= depth) return Math.floor(depth / 10) * 10;
-  else if (50 <= depth) return Math.floor(depth / 5) * 5;
-  else return Math.floor(depth / 2) * 2;
 }
 function getClosestNum(needle, haystack) {
   return haystack.reduce((a, b) => {

@@ -2924,10 +2924,8 @@ function draw_tide(data) {
   //データバーの表示範囲をそろえるため事前にループ
   var range_min = 0
   var range_max = 0
-  var adv_exists = Boolean(Object.keys(data).find(function (key) {
-  }));
   Object.keys(data).forEach(function (key) {
-    elm = data[key];
+    var elm = data[key];
     var adv_exists = elm.height >= elm.threshold_advisory;
     var warn_threshold = adv_exists ? elm.threshold_warn : 0;//注意報基準超過の場合のみ警報基準を範囲に含める
     var range_min_tmp = Math.min(elm.height, elm.astro, elm.threshold_advisory, warn_threshold, 0)
@@ -2940,7 +2938,7 @@ function draw_tide(data) {
   range_min -= margin
 
   Object.keys(data).forEach(function (key, index) {
-    elm = data[key];
+    var elm = data[key];
     var clone = document.getElementById("tide-item")
       .content.cloneNode(true).querySelector(".EQItem");
 
