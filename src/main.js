@@ -894,6 +894,9 @@ function CreateMainWindow() {
       if (MainWindow.isMinimized()) MainWindow.restore();
       if (!MainWindow.isFocused()) MainWindow.focus();
       if (!MainWindow.isVisible()) MainWindow.show();
+      if (process.platform === "darwin") {
+        app.focus({ steal: true });
+      }
     } else {
       MainWindow = new BrowserWindow({
         x: store.get("x", null),
@@ -994,6 +997,9 @@ function CreateMainWindow() {
       });
 
       MainWindow.loadFile("src/index.html");
+      if (process.platform === "darwin") {
+        app.focus({ steal: true });
+      }
 
       function savePosition() {
         const { x, y, width, height } = MainWindow.getBounds();
