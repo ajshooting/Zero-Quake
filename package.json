@@ -34,7 +34,6 @@
         "node_modules/**",
         "LICENSE.md",
         "THIRD-PARTY-LICENSES.txt",
-        "!package-lock.json",
         "!README.md",
         "!.github/**",
         "!.gitignore",
@@ -45,7 +44,17 @@
         "!node_modules/**/{test,tests,__tests__,docs,examples,benchmark}/**",
         "!node_modules/d3-geo/img/**",
         "!node_modules/d3-voronoi/*.png",
-        "!node_modules/**/prebuilds/{win32-*,linux-*}/**"
+        "!node_modules/**/prebuilds/{win32-*,linux-*}/**",
+        "!src/img/icon.ico",
+        "!src/img/tsunami_scale.png",
+        "!node_modules/**/*.tsbuildinfo",
+        "!node_modules/**/*.{d.ts,d.cts,d.mts}",
+        "!node_modules/maplibre-gl/build/**",
+        "!node_modules/maplibre-gl/dist/maplibre-gl-csp.js",
+        "!node_modules/maplibre-gl/dist/maplibre-gl-csp-worker.js",
+        "!node_modules/pmtiles/dist/cjs/**",
+        "!node_modules/pmtiles/dist/esm/**",
+        "!node_modules/fflate/**"
       ]
     },
     "win": {
