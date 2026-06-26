@@ -28,7 +28,24 @@
         "!build/**",
         "!node_modules/maplibre-gl/{src,test,docs}/**",
         "!**/*.{map,ts,md}",
-        "!node_modules/*/{CHANGELOG.md,README.md,*.map,*.ts}"
+        "!node_modules/*/{CHANGELOG.md,README.md,*.map,*.ts}",
+        "package.json",
+        "src/**",
+        "node_modules/**",
+        "LICENSE.md",
+        "THIRD-PARTY-LICENSES.txt",
+        "!package-lock.json",
+        "!README.md",
+        "!.github/**",
+        "!.gitignore",
+        "!eslint.config.js",
+        "!tools/**",
+        "!build/appx/**",
+        "!node_modules/maplibre-gl/dist/*-dev.js",
+        "!node_modules/**/{test,tests,__tests__,docs,examples,benchmark}/**",
+        "!node_modules/d3-geo/img/**",
+        "!node_modules/d3-voronoi/*.png",
+        "!node_modules/**/prebuilds/{win32-*,linux-*}/**"
       ]
     },
     "win": {
