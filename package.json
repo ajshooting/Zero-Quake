@@ -54,7 +54,14 @@
         "!node_modules/maplibre-gl/dist/maplibre-gl-csp-worker.js",
         "!node_modules/pmtiles/dist/cjs/**",
         "!node_modules/pmtiles/dist/esm/**",
-        "!node_modules/fflate/**"
+        "!node_modules/fflate/**",
+        "!node_modules/bufferutil/prebuilds/darwin-x64/**",
+        "!node_modules/bufferutil/build/**",
+        "!node_modules/bufferutil/src/**",
+        "!node_modules/utf-8-validate/build/**",
+        "!node_modules/utf-8-validate/src/**",
+        "!node_modules/**/doc/**",
+        "!node_modules/**/*.html"
       ]
     },
     "win": {
