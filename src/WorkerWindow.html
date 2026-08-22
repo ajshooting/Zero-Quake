@@ -9,6 +9,7 @@
 <body>
   <script>
     var config;
+    var platform;
     var points, Spoints;
     var Svoice, Rate, Pitch, Volume;
     var internetConnection = navigator.onLine
@@ -85,6 +86,7 @@
     window.electronAPI.messageSend((event, request) => {
       if (request.action == "setting") {
         config = request.data;
+        platform = request.platform || platform;
         if (!Svoice) {
           if (config.notice.voice_parameter.voice) {
             Svoice = speechSynthesis.getVoices().find(function (elm) {
@@ -124,6 +126,7 @@
       if (!config) return
 
       if (!engine) engine = config.notice.voice_parameter.engine
+      if (platform === "darwin" && engine == "Boyomichan") engine = "Default"
       if (engine == "Boyomichan") {
         var host = `http://localhost:${config.notice.voice_parameter.Boyomi_Port}`
         function fire_default() {
@@ -157,6 +160,21 @@
         }
 
       } else if (engine == "Default") {
+        if (platform === "darwin") {
+          window.electronAPI.messageReturn({
+            action: "NativeSpeech",
+            data: {
+              text: text,
+              voice: config.notice.voice_parameter.voice,
+              rate: Rate,
+              pitch: Pitch,
+              volume: Volume,
+            },
+          });
+          lost_text = null;
+          return;
+        }
+
         speechSynthesis.cancel();
         // 発言を作成
         const uttr = new SpeechSynthesisUtterance();

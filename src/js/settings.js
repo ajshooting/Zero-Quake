@@ -1,4 +1,13 @@
 /* global NormalizeDate maplibregl turf pmtiles SetShindoColor*/
+
+var syncTimeElm = document.getElementById("sync-time");
+if (syncTimeElm) {
+  syncTimeElm.addEventListener("click", function (event) {
+    event.preventDefault();
+    window.electronAPI.openDateSettings();
+  });
+}
+
 var map;
 var config;
 var markerElm;
@@ -7,6 +16,7 @@ var openAtLogin = false;
 var tsunamiSect;
 var EQSect;
 var defaultConfigVal;
+var platform;
 window.addEventListener("load", function () {
   this.document.getElementById("replay").value = NormalizeDate(3, new Date()).replaceAll("/", "-");
   this.document.getElementById("EEWE_EventID").value = NormalizeDate(1, new Date()).replaceAll("/", "-");
@@ -60,7 +70,23 @@ window.electronAPI.messageSend((event, request) => {
     }
 
     config = request.config;
+    platform = request.platform;
     defaultConfigVal = request.defaultConfigVal;
+
+    // Macの場合、Windows専用の棒読みちゃん設定を隠す
+    if (platform === "darwin") {
+      const boyomiSection = document.getElementById("VoiceEngine_Boyomichan")?.closest("section");
+      if (boyomiSection) {
+        boyomiSection.style.display = "none";
+        // もし設定が棒読みちゃんになっていたら、強制的に標準音声に戻す（Macでは動作しないため）
+        if (config.notice.voice_parameter.engine === "Boyomichan") {
+          config.notice.voice_parameter.engine = "Default";
+        }
+      }
+
+      const TTSPitchSection = document.getElementById("TTSPitchN")?.closest("label");
+      if (TTSPitchSection) TTSPitchSection.style.display = "none";
+    }
 
     configDataDraw();
     mapInit();
@@ -177,16 +203,18 @@ function configDataDraw() {
   document.getElementById("powerSaveBlocking").checked = config.system.powerSaveBlocking;
   selectBoxSet(document.getElementById("EQDetect_threshold"), config.Info.RealTimeShake.noticeLv);
 
-  fetch("http://localhost:50080/GetVoiceList").then(function (res) { return res.json(); })
-    .then(function (json) {
-      json.voiceList.forEach(function (elm) {
-        var VoiceOption = document.createElement("option");
-        VoiceOption.textContent = elm.name;
-        VoiceOption.value = elm.id;
-        if (elm.id == config.notice.voice_parameter.Boyomi_Voice) VoiceOption.selected = true;
-        document.getElementById("BoyomiVoiceSelect").appendChild(VoiceOption);
+  if (platform !== "darwin") {
+    fetch("http://localhost:50080/GetVoiceList").then(function (res) { return res.json(); })
+      .then(function (json) {
+        json.voiceList.forEach(function (elm) {
+          var VoiceOption = document.createElement("option");
+          VoiceOption.textContent = elm.name;
+          VoiceOption.value = elm.id;
+          if (elm.id == config.notice.voice_parameter.Boyomi_Voice) VoiceOption.selected = true;
+          document.getElementById("BoyomiVoiceSelect").appendChild(VoiceOption);
+        });
       });
-    });
+  }
 
   disabled_control();
 }
@@ -977,6 +1005,7 @@ function speak(text, engine) {
         engine = VoiceEngine_Elm.item(i).value;
     }
   }
+  if (platform === "darwin" && engine == "Boyomichan") engine = "Default";
   if (engine == "Boyomichan") {
     if (document.getElementById("BoyomiVoiceSelect").value == "auto") {
       fetch(`http://localhost:${document.getElementById("Boyomi_Port").value}/Talk?text=${text}&speed=${TTSspeed * 100}&volume=${TTSvolume * 100}&tone=${TTSpitch * 100}`)
@@ -1000,6 +1029,20 @@ function speak(text, engine) {
         })
     }
   } else if (engine == "Default") {
+    if (platform === "darwin") {
+      window.electronAPI.messageReturn({
+        action: "NativeSpeech",
+        data: {
+          text: text,
+          voice: TTSVoiceSelect.value,
+          rate: TTSspeed,
+          pitch: TTSpitch,
+          volume: TTSvolume,
+        },
+      });
+      return;
+    }
+
     speechSynthesis.cancel();
     // 発言を作成
     const uttr = new SpeechSynthesisUtterance();

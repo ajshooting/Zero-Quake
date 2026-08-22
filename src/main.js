@@ -50,7 +50,7 @@ import workerThreads from "worker_threads";
 import { readFile } from "fs/promises";
 import fs from "fs";
 import url from "url";
-import { exec } from "child_process";
+import { exec, execFile } from "child_process";
 var __dirname = path.dirname(fileURLToPath(import.meta.url));
 var FERegion = JSON.parse(
   await readFile(path.join(__dirname, "./Resource/feRegion.json"))
@@ -203,7 +203,11 @@ var jmaXML_Fetched = [];
 var eqInfo = { jma: [], usgs: [] };
 var kmoniPointsDataTmp, SnetPointsDataTmp, TremRtsData_Marged;
 let tray;
+let isQuitting = false;
 var thresholds;
+var nativeSpeechProcess = null;
+var nativeSpeechPlaybackProcess = null;
+var nativeSpeechToken = 0;
 
 electron.protocol.registerSchemesAsPrivileged([
   {
@@ -232,7 +236,9 @@ app.whenReady().then(() => {
 
 if (app.isPackaged) {
   //メニューバー非表示
-  Menu.setApplicationMenu(false);
+  if (process.platform !== 'darwin') {
+    Menu.setApplicationMenu(false);
+  }
   //多重起動防止
   const gotTheLock = app.requestSingleInstanceLock();
   if (!gotTheLock) {
@@ -379,6 +385,70 @@ function ScheduledExecution() {
 }
 //準備完了イベント
 app.whenReady().then(() => {
+  // macOS用のメニューバー
+  if (process.platform === 'darwin') {
+    const template = [
+      {
+        label: app.name,
+        submenu: [
+          { role: 'about' },
+          { type: 'separator' },
+          { role: 'services' },
+          { type: 'separator' },
+          { role: 'hide' },
+          { role: 'hideothers' },
+          { role: 'unhide' },
+          { type: 'separator' },
+          { role: 'quit' }
+        ]
+      },
+      {
+        label: 'Edit',
+        submenu: [
+          { role: 'undo' },
+          { role: 'redo' },
+          { type: 'separator' },
+          { role: 'cut' },
+          { role: 'copy' },
+          { role: 'paste' },
+          { role: 'pasteAndMatchStyle' },
+          { role: 'delete' },
+          { role: 'selectAll' },
+          { type: 'separator' },
+          {
+            label: 'Speech',
+            submenu: [
+              { role: 'startSpeaking' },
+              { role: 'stopSpeaking' }
+            ]
+          }
+        ]
+      },
+      {
+        label: 'Window',
+        submenu: [
+          { role: 'minimize' },
+          { role: 'zoom' },
+          { role: 'close' }
+        ]
+      },
+      {
+        role: 'help',
+        submenu: [
+          {
+            label: 'Learn More',
+            click: async () => {
+              await shell.openExternal('https://0quake.github.io/ZeroQuake_Website/')
+            }
+          }
+        ]
+      }
+    ];
+
+    const menu = Menu.buildFromTemplate(template);
+    Menu.setApplicationMenu(menu);
+  }
+
   //ウィンドウ作成
   Create_WorkerWindow();
   //定期実行
@@ -404,6 +474,11 @@ app.whenReady().then(() => {
 
   if (config.system.WindowAutoOpen) {
     CreateMainWindow();
+  }
+
+  if (process.platform === 'darwin') {
+    app.on("activate", CreateMainWindow);
+  } else if (config.system.WindowAutoOpen) {
     app.on("activate", () => {
       // メインウィンドウが消えている場合は再度メインウィンドウを作成する
       if (BrowserWindow.getAllWindows().length === 0) {
@@ -554,13 +629,31 @@ function errorResolve(response) {
   }
 }
 
+function openDateSettings() {
+  if (process.platform === 'darwin') {
+    shell.openExternal('x-apple.systempreferences:com.apple.preference.datetime').catch(() => {
+      shell.openPath('/System/Applications/System Settings.app').then((message) => {
+        if (message) shell.openPath('/System/Applications/System Preferences.app');
+      });
+    });
+  } else {
+    shell.openExternal('ms-settings:dateandtime');
+  }
+}
+
+ipcMain.on("open-date-settings", openDateSettings);
+
 //アプリのロード完了イベント
 electron.app.on("ready", () => {
   //タスクトレイアイコン
-  tray = new electron.Tray(
+  var trayIcon;
+  if (process.platform === "darwin") {
+    trayIcon = electron.nativeImage.createFromPath(path.join(__dirname, "img/icon.icns"));
+  } else {
     // eslint-disable-next-line no-undef
-    `${__dirname}/img/icon.${process.platform === "win32" ? "ico" : "png"}`
-  );
+    trayIcon = `${__dirname}/img/icon.${process.platform === "win32" ? "ico" : "png"}`;
+  }
+  tray = new electron.Tray(trayIcon);
   tray.setToolTip("Zero Quake");
   tray.setContextMenu(
     electron.Menu.buildFromTemplate([
@@ -587,7 +680,11 @@ electron.app.on("ready", () => {
       {
         label: "終了",
         click: () => {
-          app.exit(0);
+          if (process.platform === 'darwin') {
+            app.quit();
+          } else {
+            app.exit(0);
+          }
         },
       },
     ])
@@ -633,6 +730,7 @@ ipcMain.on("message", (_event, response) => {
     case "ChangeConfig":
       config = response.data;
       store.set("config", config);
+      if (process.platform === "darwin") applyMacAlwaysOnTopToAllWindows();
 
       if (SettingWindow) {
         SettingWindow.webContents.send("message2", {
@@ -675,6 +773,9 @@ ipcMain.on("message", (_event, response) => {
       break;
     case "checkForUpdate":
       checkUpdate(true);
+      break;
+    case "NativeSpeech":
+      if (process.platform === "darwin") speakNative(response.data);
       break;
     case "tsunamiReqest":
       if (Tsunami_data_Marged) {
@@ -744,6 +845,13 @@ ipcMain.on("message", (_event, response) => {
   }
 });
 
+if (process.platform === 'darwin') {
+  app.on('before-quit', () => {
+    stopNativeSpeech();
+    isQuitting = true;
+  });
+}
+
 function setOpenAtLogin(openAtLogin) {
   // eslint-disable-next-line no-undef
   if (process.platform != "win32") {
@@ -788,6 +896,9 @@ function CreateMainWindow() {
       if (MainWindow.isMinimized()) MainWindow.restore();
       if (!MainWindow.isFocused()) MainWindow.focus();
       if (!MainWindow.isVisible()) MainWindow.show();
+      if (process.platform === "darwin") {
+        app.focus({ steal: true });
+      }
     } else {
       MainWindow = new BrowserWindow({
         x: store.get("x", null),
@@ -797,7 +908,7 @@ function CreateMainWindow() {
 
         minWidth: 650,
         minHeight: 400,
-        icon: path.join(__dirname, "img/icon.ico"),
+        icon: path.join(__dirname, "img", process.platform === "darwin" ? "icon.icns" : "icon.ico"),
         webPreferences: {
           preload: path.join(__dirname, "js/preload.js"),
           title: "Zero Quake",
@@ -806,6 +917,7 @@ function CreateMainWindow() {
         backgroundColor: "#222225",
         alwaysOnTop: config.system.alwaysOnTop,
       });
+      applyMacAlwaysOnTop(MainWindow);
       if (store.get("Maximized", null)) MainWindow.maximize()
       else MainWindow.unmaximize()
 
@@ -883,6 +995,9 @@ function CreateMainWindow() {
       });
 
       MainWindow.loadFile("src/index.html");
+      if (process.platform === "darwin") {
+        app.focus({ steal: true });
+      }
 
       var savePosition = throttle(function () {
         const { x, y, width, height } = MainWindow.getBounds();
@@ -928,7 +1043,7 @@ function CreateMainWindow() {
       });
 
       MainWindow.on("close", (event) => {
-        if (!MainWindow.isDestroyed()) {
+        if (!(process.platform === 'darwin' && isQuitting) && !MainWindow.isDestroyed()) {
           event.preventDefault();
           MainWindow.hide();
         }
@@ -950,12 +1065,13 @@ function Create_WorkerWindow() {
   });
   WorkerWindow.on("close", () => {
     WorkerWindow = null;
-    setTimeout(Create_WorkerWindow, 2000)
+    if (!(process.platform === 'darwin' && isQuitting)) setTimeout(Create_WorkerWindow, 2000)
   });
   WorkerWindow.webContents.on("did-finish-load", () => {
     WorkerWindow.webContents.send("message2", {
       action: "setting",
       data: config,
+      platform: process.platform,
     });
   });
   WorkerWindow.loadFile("src/WorkerWindow.html");
@@ -981,7 +1097,7 @@ function Create_SettingWindow(update) {
     SettingWindow = new BrowserWindow({
       minWidth: 650,
       minHeight: 400,
-      icon: path.join(__dirname, "img/icon.ico"),
+      icon: path.join(__dirname, "img", process.platform === "darwin" ? "icon.icns" : "icon.ico"),
       webPreferences: {
         preload: path.join(__dirname, "js/preload.js"),
         title: "設定 - Zero Quake",
@@ -991,6 +1107,7 @@ function Create_SettingWindow(update) {
       backgroundColor: "#222225",
       alwaysOnTop: config.system.alwaysOnTop,
     });
+    applyMacAlwaysOnTop(SettingWindow);
 
     SettingWindow.webContents.on("did-finish-load", () => {
       SettingWindow.webContents.setZoomFactor(config.system.zoom);
@@ -1008,6 +1125,7 @@ function Create_SettingWindow(update) {
         config: config,
         defaultConfigVal: defaultConfigVal,
         softVersion: package_ver,
+        platform: process.platform,
         openAtLogin: app.getLoginItemSettings().openAtLogin
           || fs.existsSync(`${homePath}/AppData/Roaming/Microsoft/Windows/Start Menu/Programs/Startup/ZeroQuake.lnk`),
         updatePanelMode: update,
@@ -1040,6 +1158,7 @@ function Create_SettingWindow(update) {
         cancelId: 1,
       });
       if (choice == 0) event.preventDefault();
+      else if (process.platform === 'darwin') isQuitting = false;
     });
   } catch (err) {
     throw new Error("設定ウィンドウの作成でエラーが発生しました。", { cause: err });
@@ -1056,7 +1175,7 @@ function Create_TsunamiWindow() {
     TsunamiWindow = new BrowserWindow({
       minWidth: 650,
       minHeight: 400,
-      icon: path.join(__dirname, "img/icon.ico"),
+      icon: path.join(__dirname, "img", process.platform === "darwin" ? "icon.icns" : "icon.ico"),
       webPreferences: {
         preload: path.join(__dirname, "js/preload.js"),
         title: "津波詳細情報 - Zero Quake",
@@ -1064,6 +1183,7 @@ function Create_TsunamiWindow() {
       backgroundColor: "#222225",
       alwaysOnTop: config.system.alwaysOnTop,
     });
+    applyMacAlwaysOnTop(TsunamiWindow);
 
     TsunamiWindow.webContents.on("did-finish-load", () => {
       TsunamiWindow.webContents.setZoomFactor(config.system.zoom);
@@ -1106,7 +1226,7 @@ function Create_NankaiWindow(type) {
       NankaiWindow.window = new BrowserWindow({
         minWidth: 650,
         minHeight: 400,
-        icon: path.join(__dirname, "img/icon.ico"),
+        icon: path.join(__dirname, "img", process.platform === "darwin" ? "icon.icns" : "icon.ico"),
         webPreferences: {
           preload: path.join(__dirname, "js/preload.js"),
           title: "南海トラフ地震に関連する情報 - Zero Quake",
@@ -1114,6 +1234,7 @@ function Create_NankaiWindow(type) {
         backgroundColor: "#222225",
         alwaysOnTop: config.system.alwaysOnTop,
       });
+      applyMacAlwaysOnTop(NankaiWindow.window);
 
       NankaiWindow.window.webContents.on("did-finish-load", () => {
         NankaiWindow.window.webContents.setZoomFactor(config.system.zoom);
@@ -1156,7 +1277,7 @@ function Create_WepaWindow(fname) {
     WepaWindow[fname] = new BrowserWindow({
       minWidth: 650,
       minHeight: 400,
-      icon: path.join(__dirname, "img/icon.ico"),
+      icon: path.join(__dirname, "img", process.platform === "darwin" ? "icon.icns" : "icon.ico"),
       webPreferences: {
         preload: path.join(__dirname, "js/preload.js"),
         title: "国際津波関連情報 - Zero Quake",
@@ -1164,6 +1285,7 @@ function Create_WepaWindow(fname) {
       backgroundColor: "#222225",
       alwaysOnTop: config.system.alwaysOnTop,
     });
+    applyMacAlwaysOnTop(WepaWindow[fname]);
 
     WepaWindow[fname].webContents.on("did-finish-load", () => {
       WepaWindow[fname].webContents.setZoomFactor(config.system.zoom);
@@ -1203,7 +1325,7 @@ function Create_HokkaidoSanrikuWindow() {
     HokkaidoSanrikuWindow = new BrowserWindow({
       minWidth: 650,
       minHeight: 400,
-      icon: path.join(__dirname, "img/icon.ico"),
+      icon: path.join(__dirname, "img", process.platform === "darwin" ? "icon.icns" : "icon.ico"),
       webPreferences: {
         preload: path.join(__dirname, "js/preload.js"),
         title: "北海道・三陸沖後発地震注意情報 - Zero Quake",
@@ -1211,6 +1333,7 @@ function Create_HokkaidoSanrikuWindow() {
       backgroundColor: "#222225",
       alwaysOnTop: config.system.alwaysOnTop,
     });
+    applyMacAlwaysOnTop(HokkaidoSanrikuWindow);
 
     HokkaidoSanrikuWindow.webContents.on("did-finish-load", () => {
       HokkaidoSanrikuWindow.webContents.setZoomFactor(config.system.zoom);
@@ -1250,7 +1373,7 @@ function Create_KatsudoJokyoWindow() {
     KatsudoJokyoWindow = new BrowserWindow({
       minWidth: 650,
       minHeight: 400,
-      icon: path.join(__dirname, "img/icon.ico"),
+      icon: path.join(__dirname, "img", process.platform === "darwin" ? "icon.icns" : "icon.ico"),
       webPreferences: {
         preload: path.join(__dirname, "js/preload.js"),
         title: "地震の活動状況等に関する情報 - Zero Quake",
@@ -1258,6 +1381,7 @@ function Create_KatsudoJokyoWindow() {
       backgroundColor: "#222225",
       alwaysOnTop: config.system.alwaysOnTop,
     });
+    applyMacAlwaysOnTop(KatsudoJokyoWindow);
 
     KatsudoJokyoWindow.webContents.on("did-finish-load", () => {
       KatsudoJokyoWindow.webContents.setZoomFactor(config.system.zoom);
@@ -1288,6 +1412,32 @@ function messageToMainWindow(message) {
   if (MainWindow) MainWindow.webContents.send("message2", message);
 }
 
+function applyMacAlwaysOnTop(win) {
+  if (process.platform !== "darwin" || !win || win.isDestroyed()) return;
+
+  const alwaysOnTop = Boolean(config.system.alwaysOnTop);
+  win.setAlwaysOnTop(alwaysOnTop, alwaysOnTop ? "screen-saver" : "normal");
+  win.setVisibleOnAllWorkspaces(alwaysOnTop, {
+    visibleOnFullScreen: alwaysOnTop,
+  });
+  if (alwaysOnTop && win.isVisible()) win.moveTop();
+}
+
+function applyMacAlwaysOnTopToAllWindows() {
+  applyMacAlwaysOnTop(MainWindow);
+  applyMacAlwaysOnTop(SettingWindow);
+  applyMacAlwaysOnTop(TsunamiWindow);
+  applyMacAlwaysOnTop(NankaiWindow.window);
+  Object.keys(WepaWindow).forEach(function (key) {
+    applyMacAlwaysOnTop(WepaWindow[key]);
+  });
+  applyMacAlwaysOnTop(HokkaidoSanrikuWindow);
+  applyMacAlwaysOnTop(KatsudoJokyoWindow);
+  Object.keys(EQI_Window).forEach(function (key) {
+    if (EQI_Window[key]) applyMacAlwaysOnTop(EQI_Window[key].window);
+  });
+}
+
 //地震情報ウィンドウ表示処理
 var EQI_Window = {};
 var handling_url = false;
@@ -1313,7 +1463,7 @@ function EQInfo_createWindow(response, IS_WebURL) {
     var EQInfoWindow = new BrowserWindow({
       minWidth: 650,
       minHeight: 400,
-      icon: path.join(__dirname, "img/icon.ico"),
+      icon: path.join(__dirname, "img", process.platform === "darwin" ? "icon.icns" : "icon.ico"),
       webPreferences: {
         preload: path.join(__dirname, "js/preload.js"),
         title: "地震詳細情報 - Zero Quake",
@@ -1321,6 +1471,7 @@ function EQInfo_createWindow(response, IS_WebURL) {
       backgroundColor: IS_WebURL ? null : "#222225",
       alwaysOnTop: config.system.alwaysOnTop,
     });
+    applyMacAlwaysOnTop(EQInfoWindow);
 
     if (!IS_WebURL) {
       var EEWDataItem = EEW_Storage.find(function (elm) {
@@ -2684,7 +2835,7 @@ function EEW_Marge(data) {
         if (res) data.arrivalTime = new Date(Number(data.origin_time) + res * 1000)
       }
 
-      //全国の震度予測      
+      //全国の震度予測
       var estIntTmp = {};
       if (data.depth <= 150) {
         var maxShindo = 0;
@@ -2956,7 +3107,7 @@ function EEW_Alert(data, update) {
         var EEWNotification = new Notification({
           title: `${data.is_training ? "【訓練報】 " : ""}緊急地震速報 ${data.alertflg} #${data.serial}`,
           body: `${data.region_name}\n予想最大震度：${NormalizeShindo(data.maxInt, 1)} ／ M${data.magnitude ? data.magnitude : "不明"} ／ 深さ：${data.depth ? `${data.depth}km` : "不明"}${data.userIntensity ? `\n現在地の予想震度：${NormalizeShindo(data.userIntensity, 1)}` : ""}`,
-          icon: path.join(__dirname, "img/icon.ico"),
+          icon: path.join(__dirname, "img", process.platform === "darwin" ? "icon.icns" : "icon.ico"),
         });
         EEWNotification.show();
         EEWNotification.on("click", CreateMainWindow);
@@ -3027,7 +3178,7 @@ function EarlyEst_Alert(data, first) {
       var EEWNotification = new Notification({
         title: `Early-Est 地震情報 #${data.serial}`,
         body: `${data.region_name}\n M${data.magnitude}  深さ：${data.depth}km`,
-        icon: path.join(__dirname, "img/icon.ico"),
+        icon: path.join(__dirname, "img", process.platform === "darwin" ? "icon.icns" : "icon.ico"),
       });
       EEWNotification.show();
       EEWNotification.on("click", function () {
@@ -4277,6 +4428,100 @@ function ConvertTsunamiInfo(data) {
 
 //🔴支援関数🔴
 
+function normalizeNumber(value, min, max, fallback) {
+  var num = Number(value);
+  if (!Number.isFinite(num)) num = fallback;
+  return Math.min(max, Math.max(min, num));
+}
+
+function stopNativeSpeech() {
+  nativeSpeechToken++;
+  if (nativeSpeechProcess) {
+    nativeSpeechProcess.kill();
+    nativeSpeechProcess = null;
+  }
+  if (nativeSpeechPlaybackProcess) {
+    nativeSpeechPlaybackProcess.kill();
+    nativeSpeechPlaybackProcess = null;
+  }
+}
+
+function speakNative(data) {
+  if (process.platform !== "darwin") return;
+
+  if (typeof data == "string") data = { text: data };
+  if (!data || !data.text) return;
+
+  var text = String(data.text);
+  var voice = data.voice ? String(data.voice) : "";
+  var voiceCandidates = [];
+  if (voice) voiceCandidates.push(voice);
+  ["Kyoko", "Otoya"].forEach(function (name) {
+    if (!voiceCandidates.includes(name)) voiceCandidates.push(name);
+  });
+  voiceCandidates.push("");
+  var rate = Math.round(200 * normalizeNumber(data.rate, 0.1, 10, 1));
+  rate = Math.round(normalizeNumber(rate, 80, 500, 200));
+  var volume = normalizeNumber(data.volume, 0, 1, 1);
+  if (volume <= 0) {
+    stopNativeSpeech();
+    return;
+  }
+
+  stopNativeSpeech();
+  var speechToken = nativeSpeechToken;
+
+  var tmpFile = path.join(
+    app.getPath("temp"),
+    `zeroquake-tts-${process.pid}-${Date.now()}.aiff`
+  );
+
+  function cleanup() {
+    fs.unlink(tmpFile, () => {
+      return;
+    });
+  }
+
+  function playGeneratedSpeech() {
+    var player = execFile("/usr/bin/afplay", ["-v", String(volume), tmpFile], () => {
+      if (speechToken !== nativeSpeechToken) {
+        cleanup();
+        return;
+      }
+      if (nativeSpeechPlaybackProcess === player)
+        nativeSpeechPlaybackProcess = null;
+      cleanup();
+    });
+    nativeSpeechPlaybackProcess = player;
+    player.on("error", cleanup);
+  }
+
+  function runSay(voiceIndex) {
+    var currentVoice = voiceCandidates[voiceIndex];
+    var args = [];
+    if (currentVoice) args.push("-v", currentVoice);
+    args.push("-r", String(rate), "-o", tmpFile, text);
+
+    var speaker = execFile("/usr/bin/say", args, (error) => {
+      if (speechToken !== nativeSpeechToken) {
+        cleanup();
+        return;
+      }
+      if (nativeSpeechProcess === speaker) nativeSpeechProcess = null;
+      if (error) {
+        cleanup();
+        if (voiceIndex < voiceCandidates.length - 1) runSay(voiceIndex + 1);
+        return;
+      }
+      playGeneratedSpeech();
+    });
+    nativeSpeechProcess = speaker;
+    speaker.on("error", cleanup);
+  }
+
+  runSay(0);
+}
+
 //音声合成
 function speak(str) {
   if (str && WorkerWindow) {
@@ -4486,7 +4731,7 @@ function SystemNotification(message) {
   var Push = new Notification({
     title: "Zero Quake システム通知",
     body: message,
-    icon: path.join(__dirname, "img/icon.ico"),
+    icon: path.join(__dirname, "img", process.platform === "darwin" ? "icon.icns" : "icon.ico"),
   });
 
   Push.show();
