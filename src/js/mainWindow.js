@@ -2938,11 +2938,11 @@ function draw_tide(data) {
   //データバーの表示範囲をそろえるため事前にループ
   var range_min = 0
   var range_max = 0
-  function NaNu(n) {//NaNtoNull
-    return isNaN(n) ? null : n
-  }
   Object.keys(data).forEach(function (key) {
-    var elm = data[key];
+    elm = data[key];
+    function NaNu(n) {//NaNtoNull
+      return isNaN(n) ? null : n
+    }
     var adv_exists = elm.height >= elm.threshold_advisory;
     var threshold_warn = adv_exists ? elm.threshold_warn : 0;//注意報基準超過の場合のみ警報基準を範囲に含める
     var range_min_tmp = Math.min(NaNu(elm.height), NaNu(elm.astro), NaNu(elm.threshold_advisory), NaNu(threshold_warn), 0)
@@ -2955,9 +2955,8 @@ function draw_tide(data) {
   range_min -= margin;
 
   Object.keys(data).forEach(function (key, index) {
-    var elm = data[key];
-    var clone = document.getElementById("tide-item")
-      .content.cloneNode(true).querySelector(".EQItem");
+    elm = data[key];
+    var clone = document.getElementById("tide-item").content.cloneNode(true).querySelector(".EQItem");
 
     if (index == 0) clone.setAttribute("tabindex", 2);
 

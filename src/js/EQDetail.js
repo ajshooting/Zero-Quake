@@ -2379,6 +2379,8 @@ function add_IntensityStation_info(lat, lng, name, int) {
   var wrap3 = ShindoFragment.querySelectorAll(".WrapLevel3");
 
   var intStr = NormalizeShindo(int);
+  var intStrLong = NormalizeShindo(int, 1);
+
   var newDiv = document.createElement("div");
   var color4 = NormalizeShindo(int, 2);
   newDiv.innerHTML = `<span aria-hidden='true'></span><div style='background:${color4[0]};color:${color4[1]};' aria-hidden='true'>${intStr}</div>${name}`;
@@ -2618,6 +2620,8 @@ function add_IntensityStation_infoL(lat, lng, name, int) {
   var wrap3 = LgIntFragment.querySelectorAll(".WrapLevel2L");
 
   var color4 = LgIntConvert(int, 2);
+  var intStr = int;
+
   var newDiv = document.createElement("div");
   newDiv.innerHTML = `<span aria-hidden='true'></span><div style='background:${color4[0]};color:${color4[1]};' aria-hidden='true'>${int}</div>${name}`;
   newDiv.classList.add("ShindoItemL", "ShindoItem4L");

@@ -1,4 +1,6 @@
+// eslint-disable-next-line no-undef
 process.env.TZ = "Asia/Tokyo";
+// eslint-disable-next-line no-undef
 process.title = 'Zero Quake';
 
 //リプレイ
@@ -47,6 +49,7 @@ import * as turf from "@turf/turf";
 import workerThreads from "worker_threads";
 import { readFile } from "fs/promises";
 import fs from "fs";
+import url from "url";
 import { exec, execFile } from "child_process";
 var __dirname = path.dirname(fileURLToPath(import.meta.url));
 var FERegion = JSON.parse(
@@ -205,17 +208,6 @@ var thresholds;
 var nativeSpeechProcess = null;
 var nativeSpeechPlaybackProcess = null;
 var nativeSpeechToken = 0;
-var httpCacheClearThreshold = 100 * 1024 * 1024;
-
-function clearLargeHttpCache() {
-  electron.session.defaultSession.getCacheSize()
-    .then(function (size) {
-      if (size > httpCacheClearThreshold) return electron.session.defaultSession.clearCache();
-    })
-    .catch(function () {
-      return;
-    });
-}
 
 electron.protocol.registerSchemesAsPrivileged([
   {
@@ -393,8 +385,6 @@ function ScheduledExecution() {
 }
 //準備完了イベント
 app.whenReady().then(() => {
-  clearLargeHttpCache();
-
   // macOS用のメニューバー
   if (process.platform === 'darwin') {
     const template = [
@@ -563,6 +553,7 @@ let options = {
 };
 var errorMsgBox = false;
 //エラーイベント
+// eslint-disable-next-line no-undef
 process.on("uncaughtException", function (err) {
   try {
     if (!errorMsgBox && app.isReady()) {
@@ -606,21 +597,17 @@ function causeTree(err) {
         i++;
         err = err.cause;
       }
-    } catch {
-      // cause chain may be unavailable
-    }
+    } catch { }
 
     try {
       //ユーザーのフォルダ構成を秘匿
       var homeDir = app.getAppPath();
       homeDir = homeDir.replaceAll("\\", "/");//バックスラッシュ対策
       ErrString = ErrString.replace(homeDir, '<0quake_root>');
-    } catch {
-      // app path redaction is best effort
-    }
+    } catch { }
 
     return ErrString;
-  } catch {
+  } catch (e) {
     return "エラーログツリーの作成に失敗";
   }
 }
@@ -659,11 +646,14 @@ ipcMain.on("open-date-settings", openDateSettings);
 //アプリのロード完了イベント
 electron.app.on("ready", () => {
   //タスクトレイアイコン
-  tray = new electron.Tray(
-    electron.nativeImage.createFromPath(
-      path.join(__dirname, "img", `icon.${process.platform === "darwin" ? "icns" : "ico"}`)
-    )
-  );
+  var trayIcon;
+  if (process.platform === "darwin") {
+    trayIcon = electron.nativeImage.createFromPath(path.join(__dirname, "img/icon.icns"));
+  } else {
+    // eslint-disable-next-line no-undef
+    trayIcon = `${__dirname}/img/icon.${process.platform === "win32" ? "ico" : "png"}`;
+  }
+  tray = new electron.Tray(trayIcon);
   tray.setToolTip("Zero Quake");
   tray.setContextMenu(
     electron.Menu.buildFromTemplate([
@@ -740,7 +730,7 @@ ipcMain.on("message", (_event, response) => {
     case "ChangeConfig":
       config = response.data;
       store.set("config", config);
-      applyMacAlwaysOnTopToAllWindows();
+      if (process.platform === "darwin") applyMacAlwaysOnTopToAllWindows();
 
       if (SettingWindow) {
         SettingWindow.webContents.send("message2", {
@@ -785,7 +775,7 @@ ipcMain.on("message", (_event, response) => {
       checkUpdate(true);
       break;
     case "NativeSpeech":
-      speakNative(response.data);
+      if (process.platform === "darwin") speakNative(response.data);
       break;
     case "tsunamiReqest":
       if (Tsunami_data_Marged) {
@@ -855,14 +845,15 @@ ipcMain.on("message", (_event, response) => {
   }
 });
 
-app.on('before-quit', () => {
-  if (process.platform === 'darwin') {
+if (process.platform === 'darwin') {
+  app.on('before-quit', () => {
     stopNativeSpeech();
     isQuitting = true;
-  }
-});
+  });
+}
 
 function setOpenAtLogin(openAtLogin) {
+  // eslint-disable-next-line no-undef
   if (process.platform != "win32") {
     app.setLoginItemSettings({ openAtLogin: openAtLogin });
   } else {
@@ -932,6 +923,8 @@ function CreateMainWindow() {
 
       MainWindow.webContents.on("did-finish-load", () => {
         MainWindow.webContents.setZoomFactor(config.system.zoom);
+
+        if (notifyData) messageToMainWindow(notifyData);
 
         if (Replay !== 0) {
           messageToMainWindow({ action: "Replay", data: Replay });
@@ -3111,11 +3104,13 @@ function EEW_Alert(data, update) {
       var notice_setting = first ? config.notice.window.EEW : config.notice.window.EEW_Update;
       var WindowInvisible = !MainWindow || MainWindow.isMinimized() || !MainWindow.isFocused() || !MainWindow.isVisible();
       if (notice_setting == "push" && WindowInvisible) {
-        ShowNotification({
+        var EEWNotification = new Notification({
           title: `${data.is_training ? "【訓練報】 " : ""}緊急地震速報 ${data.alertflg} #${data.serial}`,
           body: `${data.region_name}\n予想最大震度：${NormalizeShindo(data.maxInt, 1)} ／ M${data.magnitude ? data.magnitude : "不明"} ／ 深さ：${data.depth ? `${data.depth}km` : "不明"}${data.userIntensity ? `\n現在地の予想震度：${NormalizeShindo(data.userIntensity, 1)}` : ""}`,
           icon: path.join(__dirname, "img", process.platform === "darwin" ? "icon.icns" : "icon.ico"),
-        }, CreateMainWindow);
+        });
+        EEWNotification.show();
+        EEWNotification.on("click", CreateMainWindow);
       } else if (notice_setting == "openWindow") {
         CreateMainWindow();
       }
@@ -3180,11 +3175,13 @@ function EarlyEst_Alert(data, first) {
       data: EEW_Active,
     });
     if (!MainWindow) {
-      ShowNotification({
+      var EEWNotification = new Notification({
         title: `Early-Est 地震情報 #${data.serial}`,
         body: `${data.region_name}\n M${data.magnitude}  深さ：${data.depth}km`,
         icon: path.join(__dirname, "img", process.platform === "darwin" ? "icon.icns" : "icon.ico"),
-      }, function () {
+      });
+      EEWNotification.show();
+      EEWNotification.on("click", function () {
         CreateMainWindow();
       });
     }
@@ -4729,24 +4726,15 @@ function PlayAudio(name) {
 }
 
 //メインウィンドウ内通知
-function ShowNotification(options, clickHandler) {
-  try {
-    if (!Notification.isSupported()) return false;
-    var Push = new Notification(options);
-    if (clickHandler) Push.on("click", clickHandler);
-    Push.show();
-    return true;
-  } catch {
-    return false;
-  }
-}
-
+var notifyData;
 function SystemNotification(message) {
-  ShowNotification({
+  var Push = new Notification({
     title: "Zero Quake システム通知",
     body: message,
     icon: path.join(__dirname, "img", process.platform === "darwin" ? "icon.icns" : "icon.ico"),
   });
+
+  Push.show();
 }
 
 //JSONパース（拡張）
@@ -4961,6 +4949,13 @@ function ConvertUTC(time) {
   } catch (err) {
     throw new Error("内部の情報処理でエラーが発生しました。(タイムゾーンの変換 - JST to UTC)", { cause: err });
   }
+}
+function depthFilter(depth) {
+  if (!isFinite(depth) || depth < 0) return 0;
+  else if (depth > 700) return 700;
+  else if (200 <= depth) return Math.floor(depth / 10) * 10;
+  else if (50 <= depth) return Math.floor(depth / 5) * 5;
+  else return Math.floor(depth / 2) * 2;
 }
 function getClosestNum(needle, haystack) {
   return haystack.reduce((a, b) => {
