@@ -17,7 +17,16 @@
       "!eslint.config.js"
     ],
     "mac": {
-      "target": "dmg",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "ZeroQuake-${version}-mac-${arch}.${ext}",
       "icon": "src/img/icon.icns",
       "electronLanguages": [
         "ja",
@@ -55,7 +64,6 @@
         "!node_modules/pmtiles/dist/cjs/**",
         "!node_modules/pmtiles/dist/esm/**",
         "!node_modules/fflate/**",
-        "!node_modules/bufferutil/prebuilds/darwin-x64/**",
         "!node_modules/bufferutil/build/**",
         "!node_modules/bufferutil/src/**",
         "!node_modules/utf-8-validate/build/**",

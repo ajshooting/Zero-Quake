@@ -4,9 +4,9 @@
 ![](https://img.shields.io/github/v/release/ajshooting/Zero-Quake)
 ![](https://img.shields.io/github/license/0quake/Zero-Quake)
 
-[0Quake/Zero-Quake](https://github.com/0Quake/Zero-Quake) を macOS（Apple Silicon）向けに改変した非公式フォークです。macOS 版についての問い合わせは、本家ではなく[こちらの Issues](https://github.com/ajshooting/Zero-Quake/issues) へお願いします。
+[0Quake/Zero-Quake](https://github.com/0Quake/Zero-Quake) を macOS 向けに改変した非公式フォークです。macOS 版についての問い合わせは、本家ではなく[こちらの Issues](https://github.com/ajshooting/Zero-Quake/issues) へお願いします。
 
-[Releases](https://github.com/ajshooting/Zero-Quake/releases) から `.dmg` を入手してインストールし、未署名のため初回のみ次を実行してください。
+[Releases](https://github.com/ajshooting/Zero-Quake/releases) から `.dmg`（Apple Silicon は `arm64`、Intel は `x64`）を入手してインストールし、未署名のため初回のみ次を実行してください。
 
 ```sh
 xattr -dr com.apple.quarantine "/Applications/Zero Quake.app"
