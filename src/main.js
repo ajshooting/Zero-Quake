@@ -646,14 +646,10 @@ ipcMain.on("open-date-settings", openDateSettings);
 //アプリのロード完了イベント
 electron.app.on("ready", () => {
   //タスクトレイアイコン
-  var trayIcon;
-  if (process.platform === "darwin") {
-    trayIcon = electron.nativeImage.createFromPath(path.join(__dirname, "img/icon.icns"));
-  } else {
+  tray = new electron.Tray(
     // eslint-disable-next-line no-undef
-    trayIcon = `${__dirname}/img/icon.${process.platform === "win32" ? "ico" : "png"}`;
-  }
-  tray = new electron.Tray(trayIcon);
+    `${__dirname}/img/icon.${process.platform === "win32" ? "ico" : "png"}`
+  );
   tray.setToolTip("Zero Quake");
   tray.setContextMenu(
     electron.Menu.buildFromTemplate([
@@ -908,7 +904,7 @@ function CreateMainWindow() {
 
         minWidth: 650,
         minHeight: 400,
-        icon: path.join(__dirname, "img", process.platform === "darwin" ? "icon.icns" : "icon.ico"),
+        icon: path.join(__dirname, "img/icon.ico"),
         webPreferences: {
           preload: path.join(__dirname, "js/preload.js"),
           title: "Zero Quake",
@@ -1097,7 +1093,7 @@ function Create_SettingWindow(update) {
     SettingWindow = new BrowserWindow({
       minWidth: 650,
       minHeight: 400,
-      icon: path.join(__dirname, "img", process.platform === "darwin" ? "icon.icns" : "icon.ico"),
+      icon: path.join(__dirname, "img/icon.ico"),
       webPreferences: {
         preload: path.join(__dirname, "js/preload.js"),
         title: "設定 - Zero Quake",
@@ -1175,7 +1171,7 @@ function Create_TsunamiWindow() {
     TsunamiWindow = new BrowserWindow({
       minWidth: 650,
       minHeight: 400,
-      icon: path.join(__dirname, "img", process.platform === "darwin" ? "icon.icns" : "icon.ico"),
+      icon: path.join(__dirname, "img/icon.ico"),
       webPreferences: {
         preload: path.join(__dirname, "js/preload.js"),
         title: "津波詳細情報 - Zero Quake",
@@ -1226,7 +1222,7 @@ function Create_NankaiWindow(type) {
       NankaiWindow.window = new BrowserWindow({
         minWidth: 650,
         minHeight: 400,
-        icon: path.join(__dirname, "img", process.platform === "darwin" ? "icon.icns" : "icon.ico"),
+        icon: path.join(__dirname, "img/icon.ico"),
         webPreferences: {
           preload: path.join(__dirname, "js/preload.js"),
           title: "南海トラフ地震に関連する情報 - Zero Quake",
@@ -1277,7 +1273,7 @@ function Create_WepaWindow(fname) {
     WepaWindow[fname] = new BrowserWindow({
       minWidth: 650,
       minHeight: 400,
-      icon: path.join(__dirname, "img", process.platform === "darwin" ? "icon.icns" : "icon.ico"),
+      icon: path.join(__dirname, "img/icon.ico"),
       webPreferences: {
         preload: path.join(__dirname, "js/preload.js"),
         title: "国際津波関連情報 - Zero Quake",
@@ -1325,7 +1321,7 @@ function Create_HokkaidoSanrikuWindow() {
     HokkaidoSanrikuWindow = new BrowserWindow({
       minWidth: 650,
       minHeight: 400,
-      icon: path.join(__dirname, "img", process.platform === "darwin" ? "icon.icns" : "icon.ico"),
+      icon: path.join(__dirname, "img/icon.ico"),
       webPreferences: {
         preload: path.join(__dirname, "js/preload.js"),
         title: "北海道・三陸沖後発地震注意情報 - Zero Quake",
@@ -1373,7 +1369,7 @@ function Create_KatsudoJokyoWindow() {
     KatsudoJokyoWindow = new BrowserWindow({
       minWidth: 650,
       minHeight: 400,
-      icon: path.join(__dirname, "img", process.platform === "darwin" ? "icon.icns" : "icon.ico"),
+      icon: path.join(__dirname, "img/icon.ico"),
       webPreferences: {
         preload: path.join(__dirname, "js/preload.js"),
         title: "地震の活動状況等に関する情報 - Zero Quake",
@@ -1463,7 +1459,7 @@ function EQInfo_createWindow(response, IS_WebURL) {
     var EQInfoWindow = new BrowserWindow({
       minWidth: 650,
       minHeight: 400,
-      icon: path.join(__dirname, "img", process.platform === "darwin" ? "icon.icns" : "icon.ico"),
+      icon: path.join(__dirname, "img/icon.ico"),
       webPreferences: {
         preload: path.join(__dirname, "js/preload.js"),
         title: "地震詳細情報 - Zero Quake",
@@ -3107,7 +3103,7 @@ function EEW_Alert(data, update) {
         var EEWNotification = new Notification({
           title: `${data.is_training ? "【訓練報】 " : ""}緊急地震速報 ${data.alertflg} #${data.serial}`,
           body: `${data.region_name}\n予想最大震度：${NormalizeShindo(data.maxInt, 1)} ／ M${data.magnitude ? data.magnitude : "不明"} ／ 深さ：${data.depth ? `${data.depth}km` : "不明"}${data.userIntensity ? `\n現在地の予想震度：${NormalizeShindo(data.userIntensity, 1)}` : ""}`,
-          icon: path.join(__dirname, "img", process.platform === "darwin" ? "icon.icns" : "icon.ico"),
+          icon: path.join(__dirname, "img/icon.ico"),
         });
         EEWNotification.show();
         EEWNotification.on("click", CreateMainWindow);
@@ -3178,7 +3174,7 @@ function EarlyEst_Alert(data, first) {
       var EEWNotification = new Notification({
         title: `Early-Est 地震情報 #${data.serial}`,
         body: `${data.region_name}\n M${data.magnitude}  深さ：${data.depth}km`,
-        icon: path.join(__dirname, "img", process.platform === "darwin" ? "icon.icns" : "icon.ico"),
+        icon: path.join(__dirname, "img/icon.ico"),
       });
       EEWNotification.show();
       EEWNotification.on("click", function () {
@@ -4731,7 +4727,7 @@ function SystemNotification(message) {
   var Push = new Notification({
     title: "Zero Quake システム通知",
     body: message,
-    icon: path.join(__dirname, "img", process.platform === "darwin" ? "icon.icns" : "icon.ico"),
+    icon: path.join(__dirname, "img/icon.ico"),
   });
 
   Push.show();
