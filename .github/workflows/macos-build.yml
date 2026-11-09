@@ -38,11 +38,18 @@ jobs:
       - name: Check asar contents
         run: find build_mac_output -name "app.asar" -exec npx asar list {} \; | grep -E "build_mac_output|\.git|eslint|prettier" || echo "Clean!"
 
-      - name: Upload build artifact
+      - name: Upload build artifact (Apple Silicon)
         uses: actions/upload-artifact@v6
         with:
-          name: zero-quake-macos
-          path: ${{ runner.temp }}/dist_mac/*.dmg
+          name: zero-quake-macos-arm64
+          path: ${{ runner.temp }}/dist_mac/*-arm64.dmg
+          if-no-files-found: error
+
+      - name: Upload build artifact (Intel)
+        uses: actions/upload-artifact@v6
+        with:
+          name: zero-quake-macos-x64
+          path: ${{ runner.temp }}/dist_mac/*-x64.dmg
           if-no-files-found: error
 
       - name: Upload GitHub Release asset
@@ -50,3 +57,22 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: ${{ runner.temp }}/dist_mac/*.dmg
+          body: |
+            [0Quake/Zero-Quake](https://github.com/0Quake/Zero-Quake) をベースにした非公式の macOS 版です。不具合・質問は本家ではなく[こちらの Issues](https://github.com/ajshooting/Zero-Quake/issues) へお願いします。
+
+            ## ダウンロード
+            お使いの Mac に合わせて、下の Assets から**どちらか1つ**を選んでください。
+
+            | Mac | ファイル |
+            | --- | --- |
+            | Apple シリコン（M1 以降） | `ZeroQuake-…-mac-arm64.dmg` |
+            | Intel | `ZeroQuake-…-mac-x64.dmg` |
+
+            わからない場合は、アップルメニュー →「この Mac について」で確認できます（「チップ」が Apple M〜 なら arm64、「プロセッサ」が Intel なら x64）。
+
+            ## インストール
+            1. dmg を開き、Zero Quake を「アプリケーション」フォルダへドラッグ
+            2. 署名していないため、初回のみターミナルで次を実行
+            ```
+            xattr -dr com.apple.quarantine "/Applications/Zero Quake.app"
+            ```
